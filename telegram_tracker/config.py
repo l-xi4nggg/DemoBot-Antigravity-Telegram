@@ -21,7 +21,10 @@ if cli_token:
 else:
     TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
     DEFAULT_DB_PATH = BASE_DIR / "database" / "tracker.db"
-    DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DEFAULT_DB_PATH}")
+    raw_db_url = os.getenv("DATABASE_URL", f"sqlite:///{DEFAULT_DB_PATH}")
+    if raw_db_url.startswith("postgres://"):
+        raw_db_url = raw_db_url.replace("postgres://", "postgresql://", 1)
+    DATABASE_URL = raw_db_url
 
 # Ensure database directory exists if using local SQLite database
 if DATABASE_URL.startswith("sqlite:///"):
