@@ -12,6 +12,8 @@ from telegram_tracker.handlers import (
     group_message_handler,
     new_member_handler,
     setservice_handler,
+    replaceservice_handler,
+    resetservice_handler,
     pending_handler,
     completed_handler,
     find_handler,
@@ -67,6 +69,8 @@ def main() -> None:
     # 4. Register Handlers (Commands must be added before general message handlers)
     application.add_handler(guide_handler)
     application.add_handler(setservice_handler)
+    application.add_handler(replaceservice_handler)
+    application.add_handler(resetservice_handler)
     application.add_handler(pending_handler)
     application.add_handler(completed_handler)
     application.add_handler(find_handler)

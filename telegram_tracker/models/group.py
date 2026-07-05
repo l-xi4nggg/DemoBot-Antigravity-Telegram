@@ -8,7 +8,7 @@ class Group(Base):
     # Telegram group IDs are large negative integers (e.g. -100123456789)
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     title: Mapped[str] = mapped_column(String(255))
-    manager_tag: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    manager_tag: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     def __repr__(self) -> str:
         return f"<Group id={self.id} title={self.title!r} manager_tag={self.manager_tag!r}>"

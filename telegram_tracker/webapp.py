@@ -119,7 +119,9 @@ def webhook():
                 "📖 *Item Packet Tracker Bot Guide*\n\n"
                 "Here is how to configure and use the bot in this group:\n\n"
                 "1️⃣ *Configure Customer Service*:\n"
-                "• `/setservice @username` - Set customer service tag (Admin only)\n\n"
+                "• `/setservice @username1 [@username2 ...]` - Add customer service members (max 4)\n"
+                "• `/replaceservice @old_username @new_username` - Replace a service member\n"
+                "• `/resetservice` - Clear all service members\n\n"
                 "2️⃣ *Record Sent Packets*:\n"
                 "• `[code] cut` / `[code] paid` (or Khmer `កាត់`) - Record code as pending/sent\n"
                 "• E.g. `G12345 cut`\n\n"
@@ -135,30 +137,89 @@ def webhook():
             run_async(send_message_safely(chat_id, guide_text, reply_to_message_id=message_id, parse_mode="Markdown"))
             
         elif cmd == "/setservice":
-            try:
-                member = run_async(bot.get_chat_member(chat_id, user_id))
-                is_admin = member.status in ["creator", "administrator"]
-            except Exception:
-                is_admin = False
-                
-            if not is_admin:
-                run_async(send_message_safely(chat_id, "❌ Only group administrators can use this command.", reply_to_message_id=message_id))
-                return "OK", 200
-                
             if not args:
-                run_async(send_message_safely(chat_id, "Usage: /setservice @username", reply_to_message_id=message_id))
+                run_async(send_message_safely(chat_id, "Usage: /setservice @username1 [@username2 ...]", reply_to_message_id=message_id))
                 return "OK", 200
                 
-            manager_tag = args[0].strip()
-            if not manager_tag.startswith("@"):
-                manager_tag = f"@{manager_tag}"
+            new_tags = []
+            for arg in args:
+                tag = arg.strip()
+                if tag:
+                    if not tag.startswith("@"):
+                        tag = f"@{tag}"
+                    new_tags.append(tag)
+                    
+            with get_db() as db:
+                db_group = upsert_group(db, chat_id, chat_title)
+                current_tags = db_group.manager_tag.split() if db_group.manager_tag else []
+                
+                # Add unique tags
+                added_tags = []
+                for tag in new_tags:
+                    if tag not in current_tags:
+                        current_tags.append(tag)
+                        added_tags.append(tag)
+                        
+                if len(current_tags) > 4:
+                    existing_str = " ".join(db_group.manager_tag.split()) if db_group.manager_tag else "None"
+                    run_async(send_message_safely(
+                        chat_id, 
+                        f"❌ Cannot add. Maximum of 4 customer service members is allowed.\nCurrent members: {existing_str}", 
+                        reply_to_message_id=message_id
+                    ))
+                    return "OK", 200
+                    
+                db_group.manager_tag = " ".join(current_tags)
+                db.commit()
+                updated_tags_str = db_group.manager_tag
+                
+            if added_tags:
+                run_async(send_message_safely(chat_id, f"✅ Added customer service member(s): {', '.join(added_tags)}.\nTotal members: {updated_tags_str}", reply_to_message_id=message_id))
+            else:
+                run_async(send_message_safely(chat_id, f"⚠️ No new members added (already registered).\nTotal members: {updated_tags_str}", reply_to_message_id=message_id))
+                
+        elif cmd == "/replaceservice":
+            if len(args) < 2:
+                run_async(send_message_safely(chat_id, "Usage: /replaceservice @old_username @new_username", reply_to_message_id=message_id))
+                return "OK", 200
+                
+            old_tag = args[0].strip()
+            if not old_tag.startswith("@"):
+                old_tag = f"@{old_tag}"
+                
+            new_tag = args[1].strip()
+            if not new_tag.startswith("@"):
+                new_tag = f"@{new_tag}"
                 
             with get_db() as db:
                 db_group = upsert_group(db, chat_id, chat_title)
-                db_group.manager_tag = manager_tag
+                current_tags = db_group.manager_tag.split() if db_group.manager_tag else []
+                
+                if old_tag not in current_tags:
+                    run_async(send_message_safely(chat_id, f"❌ User {old_tag} is not set as a customer service member in this group.", reply_to_message_id=message_id))
+                    return "OK", 200
+                    
+                # Perform replacement
+                index = current_tags.index(old_tag)
+                if new_tag in current_tags:
+                    # If new tag is already present, just remove the old tag to avoid duplicates
+                    current_tags.remove(old_tag)
+                else:
+                    current_tags[index] = new_tag
+                    
+                db_group.manager_tag = " ".join(current_tags) if current_tags else None
+                db.commit()
+                updated_tags_str = db_group.manager_tag or "None"
+                
+            run_async(send_message_safely(chat_id, f"✅ Replaced {old_tag} with {new_tag}.\nTotal members: {updated_tags_str}", reply_to_message_id=message_id))
+
+        elif cmd == "/resetservice":
+            with get_db() as db:
+                db_group = upsert_group(db, chat_id, chat_title)
+                db_group.manager_tag = None
                 db.commit()
                 
-            run_async(send_message_safely(chat_id, f"✅ Customer Service tag updated to {manager_tag} for this group.", reply_to_message_id=message_id))
+            run_async(send_message_safely(chat_id, "✅ Customer service members reset. No service members are set for this group.", reply_to_message_id=message_id))
             
         elif cmd == "/pending":
             with get_db() as db:
@@ -248,7 +309,9 @@ def webhook():
                         "📖 *Item Packet Tracker Bot Guide*\n\n"
                         "Here is how to configure and use the bot in this group:\n\n"
                         "1️⃣ *Configure Customer Service*:\n"
-                        "• `/setservice @username` - Set customer service tag (Admin only)\n\n"
+                        "• `/setservice @username1 [@username2 ...]` - Add customer service members (max 4)\n"
+                        "• `/replaceservice @old_username @new_username` - Replace a service member\n"
+                        "• `/resetservice` - Clear all service members\n\n"
                         "2️⃣ *Record Sent Packets*:\n"
                         "• `[code] cut` / `[code] paid` (or Khmer `កាត់`) - Record code as pending/sent\n"
                         "• E.g. `G12345 cut`\n\n"

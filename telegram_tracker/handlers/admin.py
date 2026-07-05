@@ -5,42 +5,111 @@ from telegram_tracker.services.tracker import upsert_group
 from telegram_tracker.models import Record
 
 async def set_service(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Sets the customer service tag for the current group."""
+    """Sets/adds customer service tags for the current group."""
     chat = update.effective_chat
     if not chat or chat.type not in ["group", "supergroup"]:
         await update.message.reply_text("This command can only be used in group chats.")
         return
 
-    # Security check: Ensure the sender is a group creator or administrator
-    user = update.effective_user
-    if not user:
-        return
-        
-    try:
-        chat_member = await context.bot.get_chat_member(chat.id, user.id)
-        if chat_member.status not in ["creator", "administrator"]:
-            await update.message.reply_text("❌ Only group administrators can use this command.")
-            return
-    except Exception as e:
-        # If we cannot verify membership (e.g. mock context in tests), we can proceed or log it
-        pass
-
-    # Extract argument
+    # Extract arguments
     if not context.args:
-        await update.message.reply_text("Usage: /setservice @username")
+        await update.message.reply_text("Usage: /setservice @username1 [@username2 ...]")
         return
 
-    manager_tag = context.args[0].strip()
-    if not manager_tag.startswith("@"):
-        manager_tag = f"@{manager_tag}"
+    new_tags = []
+    for arg in context.args:
+        tag = arg.strip()
+        if tag:
+            if not tag.startswith("@"):
+                tag = f"@{tag}"
+            new_tags.append(tag)
 
     with get_db() as db:
         # Upsert the group first to ensure it exists, then modify manager tag
         db_group = upsert_group(db, chat.id, chat.title or f"Group {chat.id}")
-        db_group.manager_tag = manager_tag
+        current_tags = db_group.manager_tag.split() if db_group.manager_tag else []
+        
+        added_tags = []
+        for tag in new_tags:
+            if tag not in current_tags:
+                current_tags.append(tag)
+                added_tags.append(tag)
+                
+        if len(current_tags) > 4:
+            existing_str = " ".join(db_group.manager_tag.split()) if db_group.manager_tag else "None"
+            await update.message.reply_text(
+                f"❌ Cannot add. Maximum of 4 customer service members is allowed.\nCurrent members: {existing_str}"
+            )
+            return
+            
+        db_group.manager_tag = " ".join(current_tags)
+        db.commit()
+        updated_tags_str = db_group.manager_tag
+
+    if added_tags:
+        await update.message.reply_text(
+            f"✅ Added customer service member(s): {', '.join(added_tags)}.\nTotal members: {updated_tags_str}"
+        )
+    else:
+        await update.message.reply_text(
+            f"⚠️ No new members added (already registered).\nTotal members: {updated_tags_str}"
+        )
+
+
+async def replace_service(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Replaces an existing customer service member with a new one."""
+    chat = update.effective_chat
+    if not chat or chat.type not in ["group", "supergroup"]:
+        await update.message.reply_text("This command can only be used in group chats.")
+        return
+
+    if not context.args or len(context.args) < 2:
+        await update.message.reply_text("Usage: /replaceservice @old_username @new_username")
+        return
+
+    old_tag = context.args[0].strip()
+    if not old_tag.startswith("@"):
+        old_tag = f"@{old_tag}"
+
+    new_tag = context.args[1].strip()
+    if not new_tag.startswith("@"):
+        new_tag = f"@{new_tag}"
+
+    with get_db() as db:
+        db_group = upsert_group(db, chat.id, chat.title or f"Group {chat.id}")
+        current_tags = db_group.manager_tag.split() if db_group.manager_tag else []
+
+        if old_tag not in current_tags:
+            await update.message.reply_text(f"❌ User {old_tag} is not set as a customer service member in this group.")
+            return
+
+        # Perform replacement
+        index = current_tags.index(old_tag)
+        if new_tag in current_tags:
+            current_tags.remove(old_tag)
+        else:
+            current_tags[index] = new_tag
+
+        db_group.manager_tag = " ".join(current_tags) if current_tags else None
+        db.commit()
+        updated_tags_str = db_group.manager_tag or "None"
+
+    await update.message.reply_text(f"✅ Replaced {old_tag} with {new_tag}.\nTotal members: {updated_tags_str}")
+
+
+async def reset_service(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Clears all customer service members for the group."""
+    chat = update.effective_chat
+    if not chat or chat.type not in ["group", "supergroup"]:
+        await update.message.reply_text("This command can only be used in group chats.")
+        return
+
+    with get_db() as db:
+        db_group = upsert_group(db, chat.id, chat.title or f"Group {chat.id}")
+        db_group.manager_tag = None
         db.commit()
 
-    await update.message.reply_text(f"✅ Customer Service tag updated to {manager_tag} for this group.")
+    await update.message.reply_text("✅ Customer service members reset. No service members are set for this group.")
 
 async def list_pending(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Lists all pending codes in the current group."""
@@ -154,7 +223,9 @@ async def send_guide(message) -> None:
         "📖 *Item Packet Tracker Bot Guide*\n\n"
         "Here is how to configure and use the bot in this group:\n\n"
         "1️⃣ *Configure Customer Service*:\n"
-        "• `/setservice @username` - Set customer service tag (Admin only)\n\n"
+        "• `/setservice @username1 [@username2 ...]` - Add customer service members (max 4)\n"
+        "• `/replaceservice @old_username @new_username` - Replace a service member\n"
+        "• `/resetservice` - Clear all service members\n\n"
         "2️⃣ *Record Sent Packets*:\n"
         "• `[code] cut` / `[code] paid` (or Khmer `កាត់`) - Record code as pending/sent\n"
         "• E.g. `G12345 cut`\n\n"
@@ -175,6 +246,8 @@ async def show_guide(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await send_guide(update.effective_message)
 
 setservice_handler = CommandHandler("setservice", set_service)
+replaceservice_handler = CommandHandler("replaceservice", replace_service)
+resetservice_handler = CommandHandler("resetservice", reset_service)
 pending_handler = CommandHandler("pending", list_pending)
 completed_handler = CommandHandler("completed", list_completed)
 find_handler = CommandHandler("find", find_code)

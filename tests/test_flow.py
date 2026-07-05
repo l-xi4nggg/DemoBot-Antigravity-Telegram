@@ -294,6 +294,153 @@ class TestWebappCron(unittest.TestCase):
                     self.assertEqual(response.status_code, 200)
                     self.assertEqual(response.data, b"Reminders checked successfully")
                     mock_run_async.assert_called_once()
+class TestServiceCommands(unittest.TestCase):
+    def setUp(self):
+        from telegram_tracker.database import init_db, SessionLocal
+        init_db()
+        self.db = SessionLocal()
+
+    def tearDown(self):
+        self.db.close()
+        from telegram_tracker.database import Base, engine
+        Base.metadata.drop_all(bind=engine)
+        engine.dispose()
+
+    async def async_test_handlers(self):
+        from telegram_tracker.handlers.admin import set_service, replace_service, reset_service
+        # 1. Mock update and context
+        update = MagicMock()
+        update.effective_chat.id = -2001
+        update.effective_chat.title = "Test CS Group"
+        update.effective_chat.type = "group"
+        update.effective_user.id = 999
+        update.effective_user.username = "someuser"
+        update.message.reply_text = AsyncMock()
+
+        context = MagicMock()
+
+        # Test /setservice with multiple users (should succeed)
+        context.args = ["@cs1", "cs2", "@cs3"]
+        await set_service(update, context)
+        update.message.reply_text.assert_called_with(
+            "✅ Added customer service member(s): @cs1, @cs2, @cs3.\nTotal members: @cs1 @cs2 @cs3"
+        )
+
+        # Check DB
+        group = self.db.query(Group).filter(Group.id == -2001).first()
+        self.assertIsNotNone(group)
+        self.assertEqual(group.manager_tag, "@cs1 @cs2 @cs3")
+
+        # Test /setservice adding more users up to the 4 limit (should succeed)
+        update.message.reply_text.reset_mock()
+        context.args = ["@cs4"]
+        await set_service(update, context)
+        update.message.reply_text.assert_called_with(
+            "✅ Added customer service member(s): @cs4.\nTotal members: @cs1 @cs2 @cs3 @cs4"
+        )
+        self.db.refresh(group)
+        self.assertEqual(group.manager_tag, "@cs1 @cs2 @cs3 @cs4")
+
+        # Test /setservice adding a 5th user (should fail)
+        update.message.reply_text.reset_mock()
+        context.args = ["@cs5"]
+        await set_service(update, context)
+        update.message.reply_text.assert_called_with(
+            "❌ Cannot add. Maximum of 4 customer service members is allowed.\nCurrent members: @cs1 @cs2 @cs3 @cs4"
+        )
+        self.db.refresh(group)
+        self.assertEqual(group.manager_tag, "@cs1 @cs2 @cs3 @cs4") # unchanged
+
+        # Test /replaceservice
+        update.message.reply_text.reset_mock()
+        context.args = ["@cs2", "@new_cs2"]
+        await replace_service(update, context)
+        update.message.reply_text.assert_called_with(
+            "✅ Replaced @cs2 with @new_cs2.\nTotal members: @cs1 @new_cs2 @cs3 @cs4"
+        )
+        self.db.refresh(group)
+        self.assertEqual(group.manager_tag, "@cs1 @new_cs2 @cs3 @cs4")
+
+        # Test /replaceservice with non-existent old user
+        update.message.reply_text.reset_mock()
+        context.args = ["@cs_nonexistent", "@new_cs"]
+        await replace_service(update, context)
+        update.message.reply_text.assert_called_with(
+            "❌ User @cs_nonexistent is not set as a customer service member in this group."
+        )
+
+        # Test /resetservice
+        update.message.reply_text.reset_mock()
+        await reset_service(update, context)
+        update.message.reply_text.assert_called_with(
+            "✅ Customer service members reset. No service members are set for this group."
+        )
+        self.db.refresh(group)
+        self.assertIsNone(group.manager_tag)
+
+    def test_handlers(self):
+        import asyncio
+        asyncio.run(self.async_test_handlers())
+
+
+class TestWebappService(unittest.TestCase):
+    def setUp(self):
+        from telegram_tracker.database import init_db, SessionLocal
+        init_db()
+        self.db = SessionLocal()
+
+    def tearDown(self):
+        self.db.close()
+        from telegram_tracker.database import Base, engine
+        Base.metadata.drop_all(bind=engine)
+        engine.dispose()
+
+    def test_webapp_service_endpoints(self):
+        from telegram_tracker.webapp import app
+        from unittest.mock import patch
+
+        with app.test_client() as client:
+            # We mock the external bot send_message calls
+            with patch("telegram_tracker.webapp.send_message_safely", new_callable=AsyncMock) as mock_send:
+                # 1. Test /setservice
+                payload = {
+                    "message": {
+                        "message_id": 123,
+                        "chat": {"id": -3001, "title": "Webapp CS Group", "type": "group"},
+                        "from": {"id": 100, "username": "any_user"},
+                        "text": "/setservice @w1 w2 @w3"
+                    }
+                }
+                response = client.post("/webhook", json=payload)
+                self.assertEqual(response.status_code, 200)
+                
+                # Check DB
+                group = self.db.query(Group).filter(Group.id == -3001).first()
+                self.assertIsNotNone(group)
+                self.assertEqual(group.manager_tag, "@w1 @w2 @w3")
+                
+                # Verify reply message contains the success
+                mock_send.assert_called_with(
+                    -3001,
+                    "✅ Added customer service member(s): @w1, @w2, @w3.\nTotal members: @w1 @w2 @w3",
+                    reply_to_message_id=123
+                )
+
+                # 2. Test /replaceservice
+                payload["message"]["text"] = "/replaceservice @w2 @new_w2"
+                response = client.post("/webhook", json=payload)
+                self.assertEqual(response.status_code, 200)
+                
+                self.db.refresh(group)
+                self.assertEqual(group.manager_tag, "@w1 @new_w2 @w3")
+
+                # 3. Test /resetservice
+                payload["message"]["text"] = "/resetservice"
+                response = client.post("/webhook", json=payload)
+                self.assertEqual(response.status_code, 200)
+                
+                self.db.refresh(group)
+                self.assertIsNone(group.manager_tag)
 
 
 if __name__ == "__main__":
