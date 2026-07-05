@@ -4,5 +4,11 @@
       "source": "/(.*)",
       "destination": "/api/index"
     }
+  ],
+  "crons": [
+    {
+      "path": "/cron/reminders",
+      "schedule": "0 0 * * *"
+    }
   ]
 }

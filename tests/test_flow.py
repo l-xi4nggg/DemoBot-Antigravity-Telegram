@@ -259,5 +259,42 @@ class TestPhase2Reminders(unittest.TestCase):
         asyncio.run(self.async_test_reminders_logic())
 
 
+class TestWebappCron(unittest.TestCase):
+    def test_cron_reminders_route(self):
+        from telegram_tracker.webapp import app
+        from unittest.mock import patch
+
+        with app.test_client() as client:
+            with patch("telegram_tracker.webapp.run_async") as mock_run_async:
+                # Test without CRON_SECRET set in environment
+                with patch.dict("os.environ", {}, clear=False):
+                    response = client.get("/cron/reminders")
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(response.data, b"Reminders checked successfully")
+                    mock_run_async.assert_called_once()
+
+                mock_run_async.reset_mock()
+                
+                # Test with CRON_SECRET set in environment
+                with patch.dict("os.environ", {"CRON_SECRET": "my_secret_token"}, clear=False):
+                    # 1. Missing header
+                    response = client.get("/cron/reminders")
+                    self.assertEqual(response.status_code, 401)
+                    self.assertEqual(response.data, b"Unauthorized")
+                    mock_run_async.assert_not_called()
+                    
+                    # 2. Incorrect header value
+                    response = client.get("/cron/reminders", headers={"Authorization": "Bearer wrong_token"})
+                    self.assertEqual(response.status_code, 401)
+                    self.assertEqual(response.data, b"Unauthorized")
+                    mock_run_async.assert_not_called()
+                    
+                    # 3. Correct header value
+                    response = client.get("/cron/reminders", headers={"Authorization": "Bearer my_secret_token"})
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(response.data, b"Reminders checked successfully")
+                    mock_run_async.assert_called_once()
+
+
 if __name__ == "__main__":
     unittest.main()

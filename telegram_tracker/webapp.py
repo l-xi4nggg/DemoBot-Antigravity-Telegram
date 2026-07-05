@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import os
 from flask import Flask, request
 from telegram import Bot
 from telegram_tracker.config import TELEGRAM_BOT_TOKEN
@@ -57,6 +58,28 @@ async def send_message_safely(chat_id, text, reply_to_message_id=None, parse_mod
 @app.route("/", methods=["GET"])
 def index():
     return "Bot is running on PythonAnywhere!"
+
+@app.route("/cron/reminders", methods=["GET", "POST"])
+def cron_reminders():
+    # If CRON_SECRET is configured in environment, verify the Authorization header
+    cron_secret = os.environ.get("CRON_SECRET")
+    if cron_secret:
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or auth_header != f"Bearer {cron_secret}":
+            return "Unauthorized", 401
+            
+    from telegram_tracker.services.reminder import check_pending_reminders
+    
+    class BotAppWrapper:
+        def __init__(self, bot_instance):
+            self.bot = bot_instance
+            
+    wrapper = BotAppWrapper(bot)
+    try:
+        run_async(check_pending_reminders(wrapper))
+        return "Reminders checked successfully", 200
+    except Exception as e:
+        return f"Error running reminders: {str(e)}", 500
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
