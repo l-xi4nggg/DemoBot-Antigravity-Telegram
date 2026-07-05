@@ -1,0 +1,13 @@
+app = "telegram-tracker-bot"
+primary_region = "sin" # Singapore (closest to SEA/Asia, change if needed)
+
+[build]
+  dockerfile = "Dockerfile"
+
+# Mount a persistent volume to store the SQLite database securely (Free on Fly.io)
+[[mounts]]
+  source = "bot_db"
+  destination = "/app/telegram_tracker/database"
+
+[env]
+  DATABASE_URL = "sqlite:///telegram_tracker/database/tracker.db"

@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    container_name: telegram_tracker_bot
+    restart: always
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - DATABASE_URL=sqlite:///telegram_tracker/database/tracker.db
+    volumes:
+      # Mount the local database directory so SQLite data persists on your host machine
+      - ./telegram_tracker/database:/app/telegram_tracker/database

@@ -1,0 +1,15 @@
+services:
+  - type: worker
+    name: telegram-tracker-bot
+    env: python
+    buildCommand: pip install -r telegram_tracker/requirements.txt
+    startCommand: python -m telegram_tracker.main
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false # Set this in the Render dashboard manually or during setup
+      - key: DATABASE_URL
+        value: sqlite:////var/data/tracker.db
+    disk:
+      name: tracker-db-disk
+      mountPath: /var/data
+      sizeGB: 1
