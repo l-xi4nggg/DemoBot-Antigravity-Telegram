@@ -46,7 +46,7 @@ async def list_pending(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     """Lists all pending codes in the current group."""
     chat = update.effective_chat
     if not chat or chat.type not in ["group", "supergroup"]:
-        await update.message.reply_text("This command can only be used in group chats.")
+        await reply_safely(update.message, "This command can only be used in group chats.")
         return
 
     with get_db() as db:
@@ -58,25 +58,33 @@ async def list_pending(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         )
         
         if not pending_records:
-            await update.message.reply_text("No pending codes found in this group.")
+            await reply_safely(update.message, "No pending codes found in this group.")
             return
             
-        lines = [f"📋 Pending Codes ({len(pending_records)} items):"]
+        from collections import defaultdict
+        grouped = defaultdict(list)
         for r in pending_records:
             date_str = r.send_time.strftime("%Y-%m-%d")
-            lines.append(f"• {r.code} - Sent by {r.sender.full_name} on {date_str}")
+            sender_name = r.sender.full_name
+            grouped[(date_str, sender_name)].append(r.code)
             
-        await update.message.reply_text("\n".join(lines))
+        lines = [f"📋 Pending Codes ({len(pending_records)} items):"]
+        for (date_str, sender_name), codes in grouped.items():
+            lines.append(f"\n📅 {date_str} | Sent by {sender_name}:")
+            for code in codes:
+                lines.append(f"• {code}")
+            
+        await reply_safely(update.message, "\n".join(lines))
 
 async def find_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Searches for a specific code in the current group."""
     chat = update.effective_chat
     if not chat or chat.type not in ["group", "supergroup"]:
-        await update.message.reply_text("This command can only be used in group chats.")
+        await reply_safely(update.message, "This command can only be used in group chats.")
         return
 
     if not context.args:
-        await update.message.reply_text("Usage: /find <code>")
+        await reply_safely(update.message, "Usage: /find <code>")
         return
 
     search_code = context.args[0].strip().upper()
@@ -89,7 +97,7 @@ async def find_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         
         if not record:
-            await update.message.reply_text(f"❌ Code {search_code} was not found in this group.")
+            await reply_safely(update.message, f"❌ Code {search_code} was not found in this group.")
             return
             
         send_date = record.send_time.strftime("%Y-%m-%d")
@@ -101,13 +109,13 @@ async def find_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             pending_days = max(0, duration.days)
             response = f"🔍 Found: {record.code} (Received) | Sender: {record.sender.full_name} | Receiver: {record.receiver.full_name if record.receiver else 'Unknown'} | Pending: {pending_days} Days | Date Sent: {send_date} | Date Received: {recv_date}"
             
-        await update.message.reply_text(response)
+        await reply_safely(update.message, response)
 
 async def list_completed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Lists the most recent completed packet codes in the current group."""
     chat = update.effective_chat
     if not chat or chat.type not in ["group", "supergroup"]:
-        await update.message.reply_text("This command can only be used in group chats.")
+        await reply_safely(update.message, "This command can only be used in group chats.")
         return
 
     with get_db() as db:
@@ -120,16 +128,23 @@ async def list_completed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         )
         
         if not completed_records:
-            await update.message.reply_text("No completed codes found in this group.")
+            await reply_safely(update.message, "No completed codes found in this group.")
             return
             
-        lines = [f"📋 Completed Codes (Last {len(completed_records)} items):"]
+        from collections import defaultdict
+        grouped = defaultdict(list)
         for r in reversed(completed_records):
             date_str = r.receive_time.strftime("%Y-%m-%d")
             receiver_name = r.receiver.full_name if r.receiver else "Unknown"
-            lines.append(f"• {r.code} - Received by {receiver_name} on {date_str}")
+            grouped[(date_str, receiver_name)].append(r.code)
             
-        await update.message.reply_text("\n".join(lines))
+        lines = [f"📋 Completed Codes (Last {len(completed_records)} items):"]
+        for (date_str, receiver_name), codes in grouped.items():
+            lines.append(f"\n📅 {date_str} | Received by {receiver_name}:")
+            for code in codes:
+                lines.append(f"• {code}")
+            
+        await reply_safely(update.message, "\n".join(lines))
 
 from telegram_tracker.handlers.utils import reply_safely
 

@@ -148,10 +148,18 @@ def webhook():
                 if not pending_records:
                     run_async(send_message_safely(chat_id, "No pending codes found in this group.", reply_to_message_id=message_id))
                 else:
-                    lines = [f"📋 Pending Codes ({len(pending_records)} items):"]
+                    from collections import defaultdict
+                    grouped = defaultdict(list)
                     for r in pending_records:
                         date_str = r.send_time.strftime("%Y-%m-%d")
-                        lines.append(f"• {r.code} - Sent by {r.sender.full_name} on {date_str}")
+                        sender_name = r.sender.full_name
+                        grouped[(date_str, sender_name)].append(r.code)
+                        
+                    lines = [f"📋 Pending Codes ({len(pending_records)} items):"]
+                    for (date_str, sender_name), codes in grouped.items():
+                        lines.append(f"\n📅 {date_str} | Sent by {sender_name}:")
+                        for code in codes:
+                            lines.append(f"• {code}")
                     run_async(send_message_safely(chat_id, "\n".join(lines), reply_to_message_id=message_id))
                     
         elif cmd == "/completed":
@@ -166,11 +174,18 @@ def webhook():
                 if not completed_records:
                     run_async(send_message_safely(chat_id, "No completed codes found in this group.", reply_to_message_id=message_id))
                 else:
-                    lines = [f"📋 Completed Codes (Last {len(completed_records)} items):"]
+                    from collections import defaultdict
+                    grouped = defaultdict(list)
                     for r in reversed(completed_records):
                         date_str = r.receive_time.strftime("%Y-%m-%d")
                         receiver_name = r.receiver.full_name if r.receiver else "Unknown"
-                        lines.append(f"• {r.code} - Received by {receiver_name} on {date_str}")
+                        grouped[(date_str, receiver_name)].append(r.code)
+                        
+                    lines = [f"📋 Completed Codes (Last {len(completed_records)} items):"]
+                    for (date_str, receiver_name), codes in grouped.items():
+                        lines.append(f"\n📅 {date_str} | Received by {receiver_name}:")
+                        for code in codes:
+                            lines.append(f"• {code}")
                     run_async(send_message_safely(chat_id, "\n".join(lines), reply_to_message_id=message_id))
                     
         elif cmd == "/find":
