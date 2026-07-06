@@ -35,7 +35,7 @@ async def post_init(application: Application) -> None:
     application.bot_data["scheduler"] = scheduler
     
     # Register bot commands for autocompletion in Telegram
-    from telegram import BotCommand
+    from telegram import BotCommand, BotCommandScopeDefault, BotCommandScopeAllGroupChats, BotCommandScopeAllChatAdministrators
     commands = [
         BotCommand("guide", "Show the bot guide"),
         BotCommand("setservice", "Add customer service members"),
@@ -45,8 +45,10 @@ async def post_init(application: Application) -> None:
         BotCommand("completed", "List recent completed codes"),
         BotCommand("find", "Search details of a specific code"),
     ]
-    await application.bot.set_my_commands(commands)
-    logger.info("Bot commands menu registered successfully.")
+    await application.bot.set_my_commands(commands, scope=BotCommandScopeDefault())
+    await application.bot.set_my_commands(commands, scope=BotCommandScopeAllGroupChats())
+    await application.bot.set_my_commands(commands, scope=BotCommandScopeAllChatAdministrators())
+    logger.info("Bot commands menu registered successfully for all scopes.")
 
 async def post_shutdown(application: Application) -> None:
     """Callback after the application has shut down. Clean up resources here."""
