@@ -17,18 +17,17 @@ elif "pg8000" in db_url:
         query_params = parse_qs(parsed.query)
         has_ssl = False
         if "sslmode" in query_params:
-            sslmode = query_params.pop("sslmode")[0]
+            sslmode = query_params.get("sslmode")[0]
             if sslmode in ("require", "prefer", "allow"):
                 has_ssl = True
         
-        # Reconstruct the URL without sslmode which is unsupported by pg8000
-        new_query = urlencode(query_params, doseq=True)
+        # Discard all query parameters to prevent TypeErrors in pg8000.connect
         db_url = urlunparse((
             parsed.scheme,
             parsed.netloc,
             parsed.path,
-            parsed.params,
-            new_query,
+            "",
+            "",
             parsed.fragment
         ))
         
