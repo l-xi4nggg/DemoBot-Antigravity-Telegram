@@ -39,4 +39,13 @@ if DATABASE_URL.startswith("sqlite:///"):
     # Re-normalize DATABASE_URL to use the absolute path
     DATABASE_URL = f"sqlite:///{db_file_path.as_posix()}"
     
-    db_file_path.parent.mkdir(parents=True, exist_ok=True)
+    if os.getenv("VERCEL"):
+        raise ValueError(
+            "SQLite database is not supported on Vercel serverless (read-only filesystem). "
+            "Please ensure you configured 'DATABASE_URL' in your Vercel Project Settings to point to your Neon PostgreSQL database."
+        )
+        
+    try:
+        db_file_path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
