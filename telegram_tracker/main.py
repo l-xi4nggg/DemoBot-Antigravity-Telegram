@@ -33,6 +33,20 @@ async def post_init(application: Application) -> None:
     logger.info("Starting background scheduler...")
     scheduler = setup_scheduler(application)
     application.bot_data["scheduler"] = scheduler
+    
+    # Register bot commands for autocompletion in Telegram
+    from telegram import BotCommand
+    commands = [
+        BotCommand("guide", "Show the bot guide"),
+        BotCommand("setservice", "Add customer service members"),
+        BotCommand("replaceservice", "Replace a service member"),
+        BotCommand("resetservice", "Clear all service members"),
+        BotCommand("pending", "List all pending codes"),
+        BotCommand("completed", "List recent completed codes"),
+        BotCommand("find", "Search details of a specific code"),
+    ]
+    await application.bot.set_my_commands(commands)
+    logger.info("Bot commands menu registered successfully.")
 
 async def post_shutdown(application: Application) -> None:
     """Callback after the application has shut down. Clean up resources here."""
