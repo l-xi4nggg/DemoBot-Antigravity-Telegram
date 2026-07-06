@@ -2,23 +2,26 @@ import asyncio
 import datetime
 import os
 from flask import Flask, request
-from telegram import Bot
-from telegram_tracker.config import TELEGRAM_BOT_TOKEN
-from telegram_tracker.database import get_db, init_db
-from telegram_tracker.services.parser import parse_message
-from telegram_tracker.services.tracker import (
-    upsert_user,
-    upsert_group,
-    record_submission,
-    record_receipt,
-)
-from telegram_tracker.models import Record
 
 app = Flask(__name__)
 
 init_error = None
 bot = None
+TELEGRAM_BOT_TOKEN = None
+
 try:
+    from telegram import Bot
+    from telegram_tracker.config import TELEGRAM_BOT_TOKEN
+    from telegram_tracker.database import get_db, init_db
+    from telegram_tracker.services.parser import parse_message
+    from telegram_tracker.services.tracker import (
+        upsert_user,
+        upsert_group,
+        record_submission,
+        record_receipt,
+    )
+    from telegram_tracker.models import Record
+    
     init_db()
     if not TELEGRAM_BOT_TOKEN:
         raise ValueError("TELEGRAM_BOT_TOKEN environment variable is missing or empty.")
