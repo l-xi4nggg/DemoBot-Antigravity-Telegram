@@ -15,10 +15,17 @@ from telegram_tracker.services.tracker import (
 from telegram_tracker.models import Record
 
 app = Flask(__name__)
-bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
-# Initialize database tables
-init_db()
+init_error = None
+bot = None
+try:
+    init_db()
+    if not TELEGRAM_BOT_TOKEN:
+        raise ValueError("TELEGRAM_BOT_TOKEN environment variable is missing or empty.")
+    bot = Bot(token=TELEGRAM_BOT_TOKEN)
+except Exception as e:
+    import traceback
+    init_error = traceback.format_exc()
 
 def run_async(coro):
     """Runs an async coroutine synchronously using a clean event loop."""
@@ -57,7 +64,9 @@ async def send_message_safely(chat_id, text, reply_to_message_id=None, parse_mod
 
 @app.route("/", methods=["GET"])
 def index():
-    return "Bot is running on PythonAnywhere!"
+    if init_error:
+        return f"<h3>Initialization Error:</h3><pre>{init_error}</pre>", 500
+    return "Bot is running on Vercel!"
 
 @app.route("/cron/reminders", methods=["GET", "POST"])
 def cron_reminders():
@@ -83,6 +92,8 @@ def cron_reminders():
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
+    if init_error:
+        return f"Initialization Error:\n{init_error}", 500
     update = request.get_json(force=True)
     if not update:
         return "OK", 200
