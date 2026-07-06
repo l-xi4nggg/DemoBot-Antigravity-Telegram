@@ -2,13 +2,40 @@ from contextlib import contextmanager
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from telegram_tracker.config import DATABASE_URL
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+import ssl
 
-# Setup sqlite specific options
+# Setup sqlite specific options or pg8000 ssl_context
 connect_args = {}
-if DATABASE_URL.startswith("sqlite"):
-    connect_args["check_same_thread"] = False
+db_url = DATABASE_URL
 
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
+if db_url.startswith("sqlite"):
+    connect_args["check_same_thread"] = False
+elif "pg8000" in db_url:
+    parsed = urlparse(db_url)
+    if parsed.query:
+        query_params = parse_qs(parsed.query)
+        has_ssl = False
+        if "sslmode" in query_params:
+            sslmode = query_params.pop("sslmode")[0]
+            if sslmode in ("require", "prefer", "allow"):
+                has_ssl = True
+        
+        # Reconstruct the URL without sslmode which is unsupported by pg8000
+        new_query = urlencode(query_params, doseq=True)
+        db_url = urlunparse((
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            parsed.params,
+            new_query,
+            parsed.fragment
+        ))
+        
+        if has_ssl:
+            connect_args["ssl_context"] = ssl.create_default_context()
+
+engine = create_engine(db_url, connect_args=connect_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 class Base(DeclarativeBase):
