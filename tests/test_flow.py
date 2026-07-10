@@ -713,8 +713,9 @@ class TestKhmerFormatting(unittest.TestCase):
             self.assertIn("🔸ស្ថានភាព៖ រកមិនឃើញ", response_text)
             
             # Check follow up trailer
-            self.assertIn("សូមជួយឆែកនិងតាមឥវ៉ាន់លេខបេ G26062588521 មួយនេះបន្តិចផង", response_text)
-            self.assertIn("អរគុណ @cs1 @cs2", response_text)
+            self.assertIn("សូមជួយឆែកនិងតាមឥវ៉ាន់លេខបេ៖", response_text)
+            self.assertIn("G26062588521", response_text)
+            self.assertIn("សូមអរគុណ @cs1 @cs2", response_text)
 
     def test_khmer_find_response(self):
         import asyncio

@@ -107,22 +107,13 @@ def cron_reminders():
     except Exception as e:
         return f"Error running reminders: {str(e)}", 500
 
-def webhook_inner():
-    update = request.get_json(force=True)
-    if not update:
-        return "OK", 200
-
 @app.route("/webhook", methods=["POST"])
 def webhook():
     if init_error:
         return f"Initialization Error:\n{init_error}", 500
-    try:
-        return webhook_inner()
-    except Exception as e:
-        import traceback
-        err_msg = traceback.format_exc()
-        print("WEBHOOK ERROR:\n", err_msg, flush=True)
-        return f"Error: {err_msg}", 500
+    update = request.get_json(force=True)
+    if not update:
+        return "OK", 200
 
     # 1. Handle my_chat_member updates (bot added to a group/supergroup)
     my_chat_member = update.get("my_chat_member")
@@ -396,11 +387,11 @@ def webhook():
                 response_text = "លេខបេ៖\n" + "\n\n".join(response_blocks)
                 
                 if pending_codes:
-                    pending_codes_str = ", ".join(pending_codes)
+                    pending_codes_str = "\n".join(pending_codes)
                     trailer = (
-                        f"\n\n------------------------------------\n\n"
-                        f"សូមជួយឆែកនិងតាមឥវ៉ាន់លេខបេ {pending_codes_str} មួយនេះបន្តិចផង\n\n"
-                        f"អរគុណ {manager_tags}".strip()
+                        f"\n\nសូមជួយឆែកនិងតាមឥវ៉ាន់លេខបេ៖\n\n"
+                        f"{pending_codes_str}\n\n"
+                        f"សូមអរគុណ {manager_tags}".strip()
                     )
                     response_text += trailer
                     

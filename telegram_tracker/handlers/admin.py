@@ -227,11 +227,11 @@ async def find_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         response_text = "លេខបេ៖\n" + "\n\n".join(response_blocks)
         
         if pending_codes:
-            pending_codes_str = ", ".join(pending_codes)
+            pending_codes_str = "\n".join(pending_codes)
             trailer = (
-                f"\n\n------------------------------------\n\n"
-                f"សូមជួយឆែកនិងតាមឥវ៉ាន់លេខបេ {pending_codes_str} មួយនេះបន្តិចផង\n\n"
-                f"អរគុណ {manager_tags}".strip()
+                f"\n\nសូមជួយឆែកនិងតាមឥវ៉ាន់លេខបេ៖\n\n"
+                f"{pending_codes_str}\n\n"
+                f"សូមអរគុណ {manager_tags}".strip()
             )
             response_text += trailer
             
