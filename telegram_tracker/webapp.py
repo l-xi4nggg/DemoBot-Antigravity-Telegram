@@ -107,13 +107,22 @@ def cron_reminders():
     except Exception as e:
         return f"Error running reminders: {str(e)}", 500
 
+def webhook_inner():
+    update = request.get_json(force=True)
+    if not update:
+        return "OK", 200
+
 @app.route("/webhook", methods=["POST"])
 def webhook():
     if init_error:
         return f"Initialization Error:\n{init_error}", 500
-    update = request.get_json(force=True)
-    if not update:
-        return "OK", 200
+    try:
+        return webhook_inner()
+    except Exception as e:
+        import traceback
+        err_msg = traceback.format_exc()
+        print("WEBHOOK ERROR:\n", err_msg, flush=True)
+        return f"Error: {err_msg}", 500
 
     # 1. Handle my_chat_member updates (bot added to a group/supergroup)
     my_chat_member = update.get("my_chat_member")
