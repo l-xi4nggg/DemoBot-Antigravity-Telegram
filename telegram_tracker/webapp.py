@@ -372,8 +372,7 @@ def webhook():
                 if recorded_existing:
                     response_lines.append("លេខបេមានរួច៖")
                     for r in recorded_existing:
-                        status_display = "មិនទាន់បានទទួល" if r.status == "SENT" else "បានទទួល"
-                        response_lines.append(f"• {r.code} ({status_display})")
+                        response_lines.append(f"• {r.code}")
                     response_lines.append("")
                 response_lines.append(f"ស្ថានភាព៖ មិនទាន់បានទទួល")
                 response_lines.append(f"អ្នកផ្ញើកូដ៖ {sender_name}")
