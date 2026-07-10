@@ -26,7 +26,8 @@ async def check_pending_reminders(bot_app) -> None:
         
         for record in pending_records:
             # Calculate age in days
-            age_timedelta = now - record.send_time
+            send_time_naive = record.send_time.replace(tzinfo=None) if record.send_time.tzinfo else record.send_time
+            age_timedelta = now - send_time_naive
             age_days = age_timedelta.days
             
             # Fetch the reminder track record (if it exists)

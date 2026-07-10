@@ -140,7 +140,9 @@ async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYP
                     recv_date = record.receive_time.strftime("%Y-%m-%d")
                     
                     # Calculate pending duration in days
-                    duration = record.receive_time - record.send_time
+                    send_time_naive = record.send_time.replace(tzinfo=None) if record.send_time.tzinfo else record.send_time
+                    recv_time_naive = record.receive_time.replace(tzinfo=None) if record.receive_time.tzinfo else record.receive_time
+                    duration = recv_time_naive - send_time_naive
                     pending_days = max(0, duration.days)
                     
                     response = (

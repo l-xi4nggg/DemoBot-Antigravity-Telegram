@@ -111,15 +111,6 @@ def cron_reminders():
 def webhook():
     if init_error:
         return f"Initialization Error:\n{init_error}", 500
-    try:
-        return webhook_inner()
-    except Exception as e:
-        import traceback
-        err_msg = traceback.format_exc()
-        print("WEBHOOK ERROR:\n", err_msg, flush=True)
-        return f"Error: {err_msg}", 500
-
-def webhook_inner():
     update = request.get_json(force=True)
     if not update:
         return "OK", 200
@@ -374,7 +365,8 @@ def webhook_inner():
                         send_date = record.send_time.strftime("%Y-%m-%d")
                         if record.status == "SENT":
                             pending_codes.append(code)
-                            duration = now - record.send_time
+                            send_time_naive = record.send_time.replace(tzinfo=None) if record.send_time.tzinfo else record.send_time
+                            duration = now - send_time_naive
                             pending_days = max(0, duration.days)
                             block = (
                                 f"• {record.code}\n\n"
@@ -496,7 +488,9 @@ def webhook_inner():
                     sender_name = record.sender.full_name
                     send_date = record.send_time.strftime("%Y-%m-%d")
                     recv_date = record.receive_time.strftime("%Y-%m-%d")
-                    duration = record.receive_time - record.send_time
+                    send_time_naive = record.send_time.replace(tzinfo=None) if record.send_time.tzinfo else record.send_time
+                    recv_time_naive = record.receive_time.replace(tzinfo=None) if record.receive_time.tzinfo else record.receive_time
+                    duration = recv_time_naive - send_time_naive
                     pending_days = max(0, duration.days)
                     response = (
                         f"✅ បានទទួលកូដរួចរាល់ (ចំនួន 1កូដ)\n\n"

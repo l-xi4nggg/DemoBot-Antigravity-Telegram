@@ -205,7 +205,8 @@ async def find_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 send_date = record.send_time.strftime("%Y-%m-%d")
                 if record.status == "SENT":
                     pending_codes.append(code)
-                    duration = now - record.send_time
+                    send_time_naive = record.send_time.replace(tzinfo=None) if record.send_time.tzinfo else record.send_time
+                    duration = now - send_time_naive
                     pending_days = max(0, duration.days)
                     block = (
                         f"• {record.code}\n\n"
