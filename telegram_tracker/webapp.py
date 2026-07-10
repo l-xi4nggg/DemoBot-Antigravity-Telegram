@@ -243,7 +243,7 @@ def webhook():
                     .all()
                 )
                 if not pending_records:
-                    run_async(send_message_safely(chat_id, "No pending codes found in this group.", reply_to_message_id=message_id))
+                    run_async(send_message_safely(chat_id, "មិនមានលេខកូដបេដែលមិនទាន់ទទួលបាន ក្នុងគ្រុបនេះទេ។", reply_to_message_id=message_id))
                 else:
                     from collections import defaultdict
                     grouped = defaultdict(list)
@@ -252,12 +252,16 @@ def webhook():
                         sender_name = r.sender.full_name
                         grouped[(date_str, sender_name)].append(r.code)
                         
-                    lines = [f"📋 Pending Codes ({len(pending_records)} items):"]
+                    response_parts = [f"📋កំណត់ត្រាលេខកូដបេដែលមិនទាន់ទទួលបាន (ចំនួន {len(pending_records)}កូដ)"]
                     for (date_str, sender_name), codes in grouped.items():
-                        lines.append(f"\n📅 {date_str} | Sent by {sender_name}:")
-                        for code in codes:
-                            lines.append(f"• {code}")
-                    run_async(send_message_safely(chat_id, "\n".join(lines), reply_to_message_id=message_id))
+                        block = (
+                            f"\n📅កាលបរិច្ឆេទដែលបានកាត់ថ្លៃដើម៖ {date_str} | ផ្ញើដោយ៖ {sender_name}\n\n"
+                            f"លេខបេដែលមិនទាន់ទទួលបាន៖\n"
+                            + "\n".join(f"• {code}" for code in codes) + "\n\n"
+                            f"🔸ស្ថានភាព៖ មិនទាន់ទទួលបាន"
+                        )
+                        response_parts.append(block)
+                    run_async(send_message_safely(chat_id, "\n".join(response_parts), reply_to_message_id=message_id))
                     
         elif cmd == "/completed":
             with get_db() as db:
@@ -269,7 +273,7 @@ def webhook():
                     .all()
                 )
                 if not completed_records:
-                    run_async(send_message_safely(chat_id, "No completed codes found in this group.", reply_to_message_id=message_id))
+                    run_async(send_message_safely(chat_id, "មិនមានលេខកូដបេដែលបានទទួល ក្នុងគ្រុបនេះទេ។", reply_to_message_id=message_id))
                 else:
                     from collections import defaultdict
                     grouped = defaultdict(list)
@@ -278,12 +282,16 @@ def webhook():
                         receiver_name = r.receiver.full_name if r.receiver else "Unknown"
                         grouped[(date_str, receiver_name)].append(r.code)
                         
-                    lines = [f"📋 Completed Codes (Last {len(completed_records)} items):"]
+                    response_parts = [f"📋កំណត់ត្រាលេខកូដបេដែលបានទទួល (ចំនួន {len(completed_records)}កូដចុងក្រោយ)"]
                     for (date_str, receiver_name), codes in grouped.items():
-                        lines.append(f"\n📅 {date_str} | Received by {receiver_name}:")
-                        for code in codes:
-                            lines.append(f"• {code}")
-                    run_async(send_message_safely(chat_id, "\n".join(lines), reply_to_message_id=message_id))
+                        block = (
+                            f"\n📅កាលបរិច្ឆេទទទួល៖ {date_str} | ទទួលដោយ៖ {receiver_name}\n\n"
+                            f"លេខបេដែលបានទទួល៖\n"
+                            + "\n".join(f"• {code}" for code in codes) + "\n\n"
+                            f"🔸ស្ថានភាព៖ បានទទួល"
+                        )
+                        response_parts.append(block)
+                    run_async(send_message_safely(chat_id, "\n".join(response_parts), reply_to_message_id=message_id))
                     
         elif cmd == "/find":
             if not args:

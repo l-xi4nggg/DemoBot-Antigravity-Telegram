@@ -127,7 +127,7 @@ async def list_pending(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         )
         
         if not pending_records:
-            await reply_safely(update.message, "No pending codes found in this group.")
+            await reply_safely(update.message, "មិនមានលេខកូដបេដែលមិនទាន់ទទួលបាន ក្នុងគ្រុបនេះទេ។")
             return
             
         from collections import defaultdict
@@ -137,13 +137,17 @@ async def list_pending(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             sender_name = r.sender.full_name
             grouped[(date_str, sender_name)].append(r.code)
             
-        lines = [f"📋 Pending Codes ({len(pending_records)} items):"]
+        response_parts = [f"📋កំណត់ត្រាលេខកូដបេដែលមិនទាន់ទទួលបាន (ចំនួន {len(pending_records)}កូដ)"]
         for (date_str, sender_name), codes in grouped.items():
-            lines.append(f"\n📅 {date_str} | Sent by {sender_name}:")
-            for code in codes:
-                lines.append(f"• {code}")
+            block = (
+                f"\n📅កាលបរិច្ឆេទដែលបានកាត់ថ្លៃដើម៖ {date_str} | ផ្ញើដោយ៖ {sender_name}\n\n"
+                f"លេខបេដែលមិនទាន់ទទួលបាន៖\n"
+                + "\n".join(f"• {code}" for code in codes) + "\n\n"
+                f"🔸ស្ថានភាព៖ មិនទាន់ទទួលបាន"
+            )
+            response_parts.append(block)
             
-        await reply_safely(update.message, "\n".join(lines))
+        await reply_safely(update.message, "\n".join(response_parts))
 
 async def find_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Searches for a specific code in the current group."""
@@ -197,7 +201,7 @@ async def list_completed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         )
         
         if not completed_records:
-            await reply_safely(update.message, "No completed codes found in this group.")
+            await reply_safely(update.message, "មិនមានលេខកូដបេដែលបានទទួល ក្នុងគ្រុបនេះទេ។")
             return
             
         from collections import defaultdict
@@ -207,13 +211,17 @@ async def list_completed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             receiver_name = r.receiver.full_name if r.receiver else "Unknown"
             grouped[(date_str, receiver_name)].append(r.code)
             
-        lines = [f"📋 Completed Codes (Last {len(completed_records)} items):"]
+        response_parts = [f"📋កំណត់ត្រាលេខកូដបេដែលបានទទួល (ចំនួន {len(completed_records)}កូដចុងក្រោយ)"]
         for (date_str, receiver_name), codes in grouped.items():
-            lines.append(f"\n📅 {date_str} | Received by {receiver_name}:")
-            for code in codes:
-                lines.append(f"• {code}")
+            block = (
+                f"\n📅កាលបរិច្ឆេទទទួល៖ {date_str} | ទទួលដោយ៖ {receiver_name}\n\n"
+                f"លេខបេដែលបានទទួល៖\n"
+                + "\n".join(f"• {code}" for code in codes) + "\n\n"
+                f"🔸ស្ថានភាព៖ បានទទួល"
+            )
+            response_parts.append(block)
             
-        await reply_safely(update.message, "\n".join(lines))
+        await reply_safely(update.message, "\n".join(response_parts))
 
 from telegram_tracker.handlers.utils import reply_safely
 

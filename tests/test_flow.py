@@ -595,6 +595,51 @@ class TestKhmerFormatting(unittest.TestCase):
         import asyncio
         asyncio.run(self.async_test_khmer_message_responses())
 
+    async def async_test_khmer_pending_response(self):
+        from telegram_tracker.handlers.admin import list_pending
+        from telegram_tracker.handlers.message import handle_group_message
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        # 1. Setup database records using handle_group_message
+        update = MagicMock()
+        update.effective_chat.id = -6002
+        update.effective_chat.title = "Pending Test Group"
+        update.effective_chat.type = "group"
+        update.effective_user.id = 888
+        update.effective_user.username = "userB"
+        update.effective_user.first_name = "User"
+        update.effective_user.last_name = "B"
+        update.effective_message.text = "G26555442233 G26555442232 cut"
+        
+        context = MagicMock()
+
+        # Send/Record the codes first
+        with patch("telegram_tracker.handlers.message.reply_safely", new_callable=AsyncMock):
+            await handle_group_message(update, context)
+
+        # 2. Call list_pending to view the list and assert Khmer output
+        update_cmd = MagicMock()
+        update_cmd.effective_chat.id = -6002
+        update_cmd.effective_chat.type = "group"
+        update_cmd.message.reply_text = AsyncMock()
+
+        with patch("telegram_tracker.handlers.admin.reply_safely", new_callable=AsyncMock) as mock_reply:
+            await list_pending(update_cmd, context)
+            
+            mock_reply.assert_called_once()
+            response_text = mock_reply.call_args[0][1]
+            
+            self.assertIn("📋កំណត់ត្រាលេខកូដបេដែលមិនទាន់ទទួលបាន (ចំនួន 2កូដ)", response_text)
+            self.assertIn("កាលបរិច្ឆេទដែលបានកាត់ថ្លៃដើម៖", response_text)
+            self.assertIn("លេខបេដែលមិនទាន់ទទួលបាន៖", response_text)
+            self.assertIn("• G26555442232", response_text)
+            self.assertIn("• G26555442233", response_text)
+            self.assertIn("ស្ថានភាព៖ មិនទាន់ទទួលបាន", response_text)
+
+    def test_khmer_pending_response(self):
+        import asyncio
+        asyncio.run(self.async_test_khmer_pending_response())
+
 
 if __name__ == "__main__":
     unittest.main()
