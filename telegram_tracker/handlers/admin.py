@@ -1,3 +1,4 @@
+import datetime
 from telegram import Update
 from telegram.ext import ContextTypes, CommandHandler
 from telegram_tracker.database import get_db
@@ -150,7 +151,7 @@ async def list_pending(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await reply_safely(update.message, "\n".join(response_parts))
 
 async def find_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Searches for a specific code in the current group."""
+    """Searches for one or more codes in the current group."""
     chat = update.effective_chat
     if not chat or chat.type not in ["group", "supergroup"]:
         await reply_safely(update.message, "This command can only be used in group chats.")
@@ -160,29 +161,80 @@ async def find_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await reply_safely(update.message, "Usage: /find <code>")
         return
 
-    search_code = context.args[0].strip().upper()
-    
+    from telegram_tracker.services.parser import CODE_PATTERN
+
+    search_text = " ".join(context.args)
+    matches = CODE_PATTERN.finditer(search_text)
+    codes = []
+    seen = set()
+    for match in matches:
+        prefix, digits = match.groups()
+        normalized_code = f"{prefix.upper()}{digits}"
+        if normalized_code not in seen:
+            codes.append(normalized_code)
+            seen.add(normalized_code)
+
+    if not codes:
+        await reply_safely(update.message, "Usage: /find <code>")
+        return
+
+    now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+
     with get_db() as db:
-        record = (
+        records = (
             db.query(Record)
-            .filter(Record.group_id == chat.id, Record.code == search_code)
-            .first()
+            .filter(Record.group_id == chat.id, Record.code.in_(codes))
+            .all()
         )
         
-        if not record:
-            await reply_safely(update.message, f"❌ Code {search_code} was not found in this group.")
-            return
+        db_group = upsert_group(db, chat.id, chat.title or f"Group {chat.id}")
+        manager_tags = db_group.manager_tag if db_group and db_group.manager_tag else ""
+        
+        record_map = {r.code: r for r in records}
+        response_blocks = []
+        pending_codes = []
+        
+        for code in codes:
+            record = record_map.get(code)
+            if not record:
+                block = (
+                    f"• {code}\n\n"
+                    f"🔸ស្ថានភាព៖ រកមិនឃើញ"
+                )
+            else:
+                send_date = record.send_time.strftime("%Y-%m-%d")
+                if record.status == "SENT":
+                    pending_codes.append(code)
+                    duration = now - record.send_time
+                    pending_days = max(0, duration.days)
+                    block = (
+                        f"• {record.code}\n\n"
+                        f"🔸ស្ថានភាព៖ មិនទាន់បានទទួល\n"
+                        f"📅កាលបរិច្ឆេទកាត់ថ្លៃដើម៖ {send_date}\n"
+                        f"📅 Pending: {pending_days}ថ្ងៃ"
+                    )
+                else:
+                    recv_date = record.receive_time.strftime("%Y-%m-%d")
+                    block = (
+                        f"• {record.code}\n\n"
+                        f"🔸ស្ថានភាព៖ បានទទួល\n"
+                        f"📅កាលបរិច្ឆេទកាត់ថ្លៃដើម៖ {send_date}\n"
+                        f"📅កាលបរិច្ឆេទទទួល៖ {recv_date}"
+                    )
+            response_blocks.append(block)
             
-        send_date = record.send_time.strftime("%Y-%m-%d")
-        if record.status == "SENT":
-            response = f"🔍 Found: {record.code} (Pending) | Sender: {record.sender.full_name} | Date Sent: {send_date}"
-        else:
-            recv_date = record.receive_time.strftime("%Y-%m-%d")
-            duration = record.receive_time - record.send_time
-            pending_days = max(0, duration.days)
-            response = f"🔍 Found: {record.code} (Received) | Sender: {record.sender.full_name} | Receiver: {record.receiver.full_name if record.receiver else 'Unknown'} | Pending: {pending_days} Days | Date Sent: {send_date} | Date Received: {recv_date}"
+        response_text = "លេខបេ៖\n" + "\n\n".join(response_blocks)
+        
+        if pending_codes:
+            pending_codes_str = ", ".join(pending_codes)
+            trailer = (
+                f"\n\n------------------------------------\n\n"
+                f"សូមជួយឆែកនិងតាមឥវ៉ាន់លេខបេ {pending_codes_str} មួយនេះបន្តិចផង\n\n"
+                f"អរគុណ {manager_tags}".strip()
+            )
+            response_text += trailer
             
-        await reply_safely(update.message, response)
+        await reply_safely(update.message, response_text)
 
 async def list_completed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Lists the most recent completed packet codes in the current group."""

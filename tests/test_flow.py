@@ -640,6 +640,69 @@ class TestKhmerFormatting(unittest.TestCase):
         import asyncio
         asyncio.run(self.async_test_khmer_pending_response())
 
+    async def async_test_khmer_find_response(self):
+        from telegram_tracker.handlers.admin import find_code
+        from telegram_tracker.handlers.message import handle_group_message
+        from telegram_tracker.database import SessionLocal
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        # 1. Setup a group manager tag, and record codes
+        from telegram_tracker.services.tracker import upsert_group
+        db = SessionLocal()
+        group = upsert_group(db, -6003, "Find Test Group")
+        group.manager_tag = "@cs1 @cs2"
+        db.commit()
+        db.close()
+
+        update = MagicMock()
+        update.effective_chat.id = -6003
+        update.effective_chat.title = "Find Test Group"
+        update.effective_chat.type = "group"
+        update.effective_user.id = 888
+        update.effective_user.username = "userB"
+        update.effective_user.first_name = "User"
+        update.effective_user.last_name = "B"
+        # Submit G26062588521 cut (PENDING)
+        update.effective_message.text = "G26062588521 cut"
+        
+        context = MagicMock()
+
+        with patch("telegram_tracker.handlers.message.reply_safely", new_callable=AsyncMock):
+            await handle_group_message(update, context)
+
+        # 2. Call find_code to search multiple codes (including non-existent and pending)
+        update_cmd = MagicMock()
+        update_cmd.effective_chat.id = -6003
+        update_cmd.effective_chat.title = "Find Test Group"
+        update_cmd.effective_chat.type = "group"
+        update_cmd.message.reply_text = AsyncMock()
+        context_cmd = MagicMock()
+        context_cmd.args = ["G26062588521", "G99999999999"]
+
+        with patch("telegram_tracker.handlers.admin.reply_safely", new_callable=AsyncMock) as mock_reply:
+            await find_code(update_cmd, context_cmd)
+            
+            mock_reply.assert_called_once()
+            response_text = mock_reply.call_args[0][1]
+            
+            # Check Khmer layout content
+            self.assertIn("លេខបេ៖", response_text)
+            self.assertIn("• G26062588521", response_text)
+            self.assertIn("🔸ស្ថានភាព៖ មិនទាន់បានទទួល", response_text)
+            self.assertIn("📅កាលបរិច្ឆេទកាត់ថ្លៃដើម៖", response_text)
+            self.assertIn("📅 Pending:", response_text)
+            
+            self.assertIn("• G99999999999", response_text)
+            self.assertIn("🔸ស្ថានភាព៖ រកមិនឃើញ", response_text)
+            
+            # Check follow up trailer
+            self.assertIn("សូមជួយឆែកនិងតាមឥវ៉ាន់លេខបេ G26062588521 មួយនេះបន្តិចផង", response_text)
+            self.assertIn("អរគុណ @cs1 @cs2", response_text)
+
+    def test_khmer_find_response(self):
+        import asyncio
+        asyncio.run(self.async_test_khmer_find_response())
+
 
 if __name__ == "__main__":
     unittest.main()

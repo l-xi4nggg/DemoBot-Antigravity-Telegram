@@ -298,21 +298,80 @@ def webhook():
                 run_async(send_message_safely(chat_id, "Usage: /find <code>", reply_to_message_id=message_id))
                 return "OK", 200
                 
-            search_code = args[0].strip().upper()
+            from telegram_tracker.services.parser import CODE_PATTERN
+
+            search_text = " ".join(args)
+            matches = CODE_PATTERN.finditer(search_text)
+            codes = []
+            seen = set()
+            for match in matches:
+                prefix, digits = match.groups()
+                normalized_code = f"{prefix.upper()}{digits}"
+                if normalized_code not in seen:
+                    codes.append(normalized_code)
+                    seen.add(normalized_code)
+
+            if not codes:
+                run_async(send_message_safely(chat_id, "Usage: /find <code>", reply_to_message_id=message_id))
+                return "OK", 200
+
+            now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+
             with get_db() as db:
-                record = db.query(Record).filter(Record.group_id == chat_id, Record.code == search_code).first()
-                if not record:
-                    run_async(send_message_safely(chat_id, f"❌ Code {search_code} was not found in this group.", reply_to_message_id=message_id))
-                else:
-                    send_date = record.send_time.strftime("%Y-%m-%d")
-                    if record.status == "SENT":
-                        response = f"🔍 Found: {record.code} (Pending) | Sender: {record.sender.full_name} | Date Sent: {send_date}"
+                records = (
+                    db.query(Record)
+                    .filter(Record.group_id == chat_id, Record.code.in_(codes))
+                    .all()
+                )
+                
+                db_group = upsert_group(db, chat_id, chat_title)
+                manager_tags = db_group.manager_tag if db_group and db_group.manager_tag else ""
+                
+                record_map = {r.code: r for r in records}
+                response_blocks = []
+                pending_codes = []
+                
+                for code in codes:
+                    record = record_map.get(code)
+                    if not record:
+                        block = (
+                            f"• {code}\n\n"
+                            f"🔸ស្ថានភាព៖ រកមិនឃើញ"
+                        )
                     else:
-                        recv_date = record.receive_time.strftime("%Y-%m-%d")
-                        duration = record.receive_time - record.send_time
-                        pending_days = max(0, duration.days)
-                        response = f"🔍 Found: {record.code} (Received) | Sender: {record.sender.full_name} | Receiver: {record.receiver.full_name if record.receiver else 'Unknown'} | Pending: {pending_days} Days | Date Sent: {send_date} | Date Received: {recv_date}"
-                    run_async(send_message_safely(chat_id, response, reply_to_message_id=message_id))
+                        send_date = record.send_time.strftime("%Y-%m-%d")
+                        if record.status == "SENT":
+                            pending_codes.append(code)
+                            duration = now - record.send_time
+                            pending_days = max(0, duration.days)
+                            block = (
+                                f"• {record.code}\n\n"
+                                f"🔸ស្ថានភាព៖ មិនទាន់បានទទួល\n"
+                                f"📅កាលបរិច្ឆេទកាត់ថ្លៃដើម៖ {send_date}\n"
+                                f"📅 Pending: {pending_days}ថ្ងៃ"
+                            )
+                        else:
+                            recv_date = record.receive_time.strftime("%Y-%m-%d")
+                            block = (
+                                f"• {record.code}\n\n"
+                                f"🔸ស្ថានភាព៖ បានទទួល\n"
+                                f"📅កាលបរិច្ឆេទកាត់ថ្លៃដើម៖ {send_date}\n"
+                                f"📅កាលបរិច្ឆេទទទួល៖ {recv_date}"
+                            )
+                    response_blocks.append(block)
+                    
+                response_text = "លេខបេ៖\n" + "\n\n".join(response_blocks)
+                
+                if pending_codes:
+                    pending_codes_str = ", ".join(pending_codes)
+                    trailer = (
+                        f"\n\n------------------------------------\n\n"
+                        f"សូមជួយឆែកនិងតាមឥវ៉ាន់លេខបេ {pending_codes_str} មួយនេះបន្តិចផង\n\n"
+                        f"អរគុណ {manager_tags}".strip()
+                    )
+                    response_text += trailer
+                    
+                run_async(send_message_safely(chat_id, response_text, reply_to_message_id=message_id))
                     
         return "OK", 200
 
