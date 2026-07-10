@@ -1,6 +1,6 @@
 import datetime
 from telegram import Update
-from telegram.ext import ContextTypes, MessageHandler, filters
+from telegram.ext import ContextTypes, MessageHandler, filters, ChatMemberHandler
 from telegram_tracker.database import get_db
 from telegram_tracker.services.parser import parse_message
 from telegram_tracker.services.tracker import (
@@ -191,19 +191,33 @@ group_message_handler = MessageHandler(
     handle_group_message
 )
 
-async def handle_new_chat_members(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Sends the guide automatically when the bot is added to a new group."""
-    message = update.effective_message
-    if not message or not message.new_chat_members:
+
+
+async def handle_my_chat_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Sends the guide automatically when the bot is added to a new group/supergroup."""
+    my_chat_member = update.my_chat_member
+    if not my_chat_member:
         return
         
-    for member in message.new_chat_members:
-        if member.id == context.bot.id:
-            from telegram_tracker.handlers.admin import send_guide
-            await send_guide(message)
-            break
+    chat = my_chat_member.chat
+    if not chat or chat.type not in ["group", "supergroup"]:
+        return
+        
+    old_status = my_chat_member.old_chat_member.status
+    new_status = my_chat_member.new_chat_member.status
+    
+    # We want to trigger when the bot is added as a member or administrator
+    # and it was not previously a member or administrator.
+    active_statuses = ["member", "administrator"]
+    if new_status in active_statuses and old_status not in active_statuses:
+        from telegram_tracker.handlers.admin import GUIDE_TEXT
+        await context.bot.send_message(
+            chat_id=chat.id,
+            text=GUIDE_TEXT,
+            parse_mode="Markdown"
+        )
 
-new_member_handler = MessageHandler(
-    filters.StatusUpdate.NEW_CHAT_MEMBERS, 
-    handle_new_chat_members
+my_chat_member_handler = ChatMemberHandler(
+    handle_my_chat_member,
+    chat_member_types=ChatMemberHandler.MY_CHAT_MEMBER
 )

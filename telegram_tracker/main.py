@@ -10,7 +10,7 @@ from telegram_tracker.config import TELEGRAM_BOT_TOKEN
 from telegram_tracker.database import init_db
 from telegram_tracker.handlers import (
     group_message_handler,
-    new_member_handler,
+    my_chat_member_handler,
     setservice_handler,
     replaceservice_handler,
     resetservice_handler,
@@ -90,7 +90,7 @@ def main() -> None:
     application.add_handler(pending_handler)
     application.add_handler(completed_handler)
     application.add_handler(find_handler)
-    application.add_handler(new_member_handler)
+    application.add_handler(my_chat_member_handler)
     application.add_handler(group_message_handler)
 
     # 5. Start Polling

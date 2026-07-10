@@ -217,28 +217,29 @@ async def list_completed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 from telegram_tracker.handlers.utils import reply_safely
 
+GUIDE_TEXT = (
+    "📖 *Item Packet Tracker Bot Guide*\n\n"
+    "Here is how to configure and use the bot in this group:\n\n"
+    "1️⃣ *Configure Customer Service*:\n"
+    "• `/setservice @username1 [@username2 ...]` - Add customer service members (max 4)\n"
+    "• `/replaceservice @old_username @new_username` - Replace a service member\n"
+    "• `/resetservice` - Clear all service members\n\n"
+    "2️⃣ *Record Sent Packets*:\n"
+    "• `[code] cut` / `[code] paid` (or Khmer `កាត់`) - Record code as pending/sent\n"
+    "• E.g. `G12345 cut`\n\n"
+    "3️⃣ *Receive Packets*:\n"
+    "• `[code] received` (or Khmer `ទទួល`) - Mark code as received/collected\n"
+    "• E.g. `G12345 received`\n\n"
+    "4️⃣ *Queries*:\n"
+    "• `/pending` - List all pending packets in this group\n"
+    "• `/completed` - List recent completed packets in this group\n"
+    "• `/find [code]` - Search packet details\n"
+    "• `/guide` - Show this guide again"
+)
+
 async def send_guide(message) -> None:
     """Helper to send the bot user guide formatted in Markdown."""
-    guide_text = (
-        "📖 *Item Packet Tracker Bot Guide*\n\n"
-        "Here is how to configure and use the bot in this group:\n\n"
-        "1️⃣ *Configure Customer Service*:\n"
-        "• `/setservice @username1 [@username2 ...]` - Add customer service members (max 4)\n"
-        "• `/replaceservice @old_username @new_username` - Replace a service member\n"
-        "• `/resetservice` - Clear all service members\n\n"
-        "2️⃣ *Record Sent Packets*:\n"
-        "• `[code] cut` / `[code] paid` (or Khmer `កាត់`) - Record code as pending/sent\n"
-        "• E.g. `G12345 cut`\n\n"
-        "3️⃣ *Receive Packets*:\n"
-        "• `[code] received` (or Khmer `ទទួល`) - Mark code as received/collected\n"
-        "• E.g. `G12345 received`\n\n"
-        "4️⃣ *Queries*:\n"
-        "• `/pending` - List all pending packets in this group\n"
-        "• `/completed` - List recent completed packets in this group\n"
-        "• `/find [code]` - Search packet details\n"
-        "• `/guide` - Show this guide again"
-    )
-    await reply_safely(message, guide_text, parse_mode="Markdown")
+    await reply_safely(message, GUIDE_TEXT, parse_mode="Markdown")
 
 async def show_guide(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Sends the user guide to the chat."""

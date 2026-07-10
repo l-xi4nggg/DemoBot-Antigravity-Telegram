@@ -21,6 +21,7 @@ try:
         record_receipt,
     )
     from telegram_tracker.models import Record
+    from telegram_tracker.handlers.admin import GUIDE_TEXT
     
     init_db()
     if not TELEGRAM_BOT_TOKEN:
@@ -101,6 +102,23 @@ def webhook():
     if not update:
         return "OK", 200
 
+    # 1. Handle my_chat_member updates (bot added to a group/supergroup)
+    my_chat_member = update.get("my_chat_member")
+    if my_chat_member:
+        chat = my_chat_member.get("chat")
+        if chat and chat.get("type") in ["group", "supergroup"]:
+            new_chat_member = my_chat_member.get("new_chat_member")
+            old_chat_member = my_chat_member.get("old_chat_member")
+            if new_chat_member and old_chat_member:
+                new_status = new_chat_member.get("status")
+                old_status = old_chat_member.get("status")
+                active_statuses = ["member", "administrator"]
+                is_added = new_status in active_statuses and old_status not in active_statuses
+                if is_added:
+                    chat_id = chat["id"]
+                    run_async(send_message_safely(chat_id, GUIDE_TEXT, parse_mode="Markdown"))
+        return "OK", 200
+
     # Process message
     message = update.get("message")
     if not message:
@@ -129,26 +147,7 @@ def webhook():
         args = parts[1:]
         
         if cmd == "/guide":
-            guide_text = (
-                "📖 *Item Packet Tracker Bot Guide*\n\n"
-                "Here is how to configure and use the bot in this group:\n\n"
-                "1️⃣ *Configure Customer Service*:\n"
-                "• `/setservice @username1 [@username2 ...]` - Add customer service members (max 4)\n"
-                "• `/replaceservice @old_username @new_username` - Replace a service member\n"
-                "• `/resetservice` - Clear all service members\n\n"
-                "2️⃣ *Record Sent Packets*:\n"
-                "• `[code] cut` / `[code] paid` (or Khmer `កាត់`) - Record code as pending/sent\n"
-                "• E.g. `G12345 cut`\n\n"
-                "3️⃣ *Receive Packets*:\n"
-                "• `[code] received` (or Khmer `ទទួល`) - Mark code as received/collected\n"
-                "• E.g. `G12345 received`\n\n"
-                "4️⃣ *Queries*:\n"
-                "• `/pending` - List all pending packets in this group\n"
-                "• `/completed` - List recent completed packets in this group\n"
-                "• `/find [code]` - Search packet details\n"
-                "• `/guide` - Show this guide again"
-            )
-            run_async(send_message_safely(chat_id, guide_text, reply_to_message_id=message_id, parse_mode="Markdown"))
+            run_async(send_message_safely(chat_id, GUIDE_TEXT, reply_to_message_id=message_id, parse_mode="Markdown"))
             
         elif cmd == "/setservice":
             if not args:
@@ -312,34 +311,6 @@ def webhook():
     # 2. Handle group message tracking logic
     parsed = parse_message(text)
     if not parsed:
-        # Check for new member status updates
-        new_members = message.get("new_chat_members")
-        if new_members:
-            for member in new_members:
-                # If the bot itself was added to the group
-                bot_info = run_async(bot.get_me())
-                if member.get("id") == bot_info.id:
-                    guide_text = (
-                        "📖 *Item Packet Tracker Bot Guide*\n\n"
-                        "Here is how to configure and use the bot in this group:\n\n"
-                        "1️⃣ *Configure Customer Service*:\n"
-                        "• `/setservice @username1 [@username2 ...]` - Add customer service members (max 4)\n"
-                        "• `/replaceservice @old_username @new_username` - Replace a service member\n"
-                        "• `/resetservice` - Clear all service members\n\n"
-                        "2️⃣ *Record Sent Packets*:\n"
-                        "• `[code] cut` / `[code] paid` (or Khmer `កាត់`) - Record code as pending/sent\n"
-                        "• E.g. `G12345 cut`\n\n"
-                        "3️⃣ *Receive Packets*:\n"
-                        "• `[code] received` (or Khmer `ទទួល`) - Mark code as received/collected\n"
-                        "• E.g. `G12345 received`\n\n"
-                        "4️⃣ *Queries*:\n"
-                        "• `/pending` - List all pending packets in this group\n"
-                        "• `/completed` - List recent completed packets in this group\n"
-                        "• `/find [code]` - Search packet details\n"
-                        "• `/guide` - Show this guide again"
-                    )
-                    run_async(send_message_safely(chat_id, guide_text, parse_mode="Markdown"))
-                    break
         return "OK", 200
 
     codes, status = parsed

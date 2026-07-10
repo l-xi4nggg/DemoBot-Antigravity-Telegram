@@ -1,4 +1,4 @@
-from telegram_tracker.handlers.message import group_message_handler, new_member_handler
+from telegram_tracker.handlers.message import group_message_handler, my_chat_member_handler
 from telegram_tracker.handlers.admin import (
     setservice_handler,
     replaceservice_handler,
@@ -11,7 +11,7 @@ from telegram_tracker.handlers.admin import (
 
 __all__ = [
     "group_message_handler",
-    "new_member_handler",
+    "my_chat_member_handler",
     "setservice_handler",
     "replaceservice_handler",
     "resetservice_handler",

@@ -442,6 +442,72 @@ class TestWebappService(unittest.TestCase):
                 self.db.refresh(group)
                 self.assertIsNone(group.manager_tag)
 
+    def test_webapp_my_chat_member(self):
+        from telegram_tracker.webapp import app, GUIDE_TEXT
+        from unittest.mock import patch
+
+        with app.test_client() as client:
+            with patch("telegram_tracker.webapp.send_message_safely", new_callable=AsyncMock) as mock_send:
+                payload = {
+                    "my_chat_member": {
+                        "chat": {"id": -4001, "title": "Webapp My Chat Member Group", "type": "group"},
+                        "from": {"id": 100, "username": "any_user"},
+                        "old_chat_member": {
+                            "user": {"id": 9999, "is_bot": True, "first_name": "TestBot"},
+                            "status": "left"
+                        },
+                        "new_chat_member": {
+                            "user": {"id": 9999, "is_bot": True, "first_name": "TestBot"},
+                            "status": "member"
+                        }
+                    }
+                }
+                response = client.post("/webhook", json=payload)
+                self.assertEqual(response.status_code, 200)
+                mock_send.assert_called_with(-4001, GUIDE_TEXT, parse_mode="Markdown")
+
+
+class TestMyChatMemberHandler(unittest.TestCase):
+    async def async_test_handle_my_chat_member(self):
+        from telegram_tracker.handlers.message import handle_my_chat_member
+        from telegram_tracker.handlers.admin import GUIDE_TEXT
+        from unittest.mock import AsyncMock, MagicMock
+        
+        # Scenario 1: Bot joins group
+        update = MagicMock()
+        update.my_chat_member.chat.id = -5001
+        update.my_chat_member.chat.type = "group"
+        update.my_chat_member.old_chat_member.status = "left"
+        update.my_chat_member.new_chat_member.status = "member"
+        
+        context = MagicMock()
+        context.bot.send_message = AsyncMock()
+        
+        await handle_my_chat_member(update, context)
+        context.bot.send_message.assert_called_with(
+            chat_id=-5001,
+            text=GUIDE_TEXT,
+            parse_mode="Markdown"
+        )
+        
+        # Scenario 2: Bot is already member, status changes to admin (should not send guide again)
+        context.bot.send_message.reset_mock()
+        update.my_chat_member.old_chat_member.status = "member"
+        update.my_chat_member.new_chat_member.status = "administrator"
+        await handle_my_chat_member(update, context)
+        context.bot.send_message.assert_not_called()
+
+        # Scenario 3: Bot leaves group (status member -> left) (should not send guide)
+        context.bot.send_message.reset_mock()
+        update.my_chat_member.old_chat_member.status = "member"
+        update.my_chat_member.new_chat_member.status = "left"
+        await handle_my_chat_member(update, context)
+        context.bot.send_message.assert_not_called()
+
+    def test_handle_my_chat_member(self):
+        import asyncio
+        asyncio.run(self.async_test_handle_my_chat_member())
+
 
 if __name__ == "__main__":
     unittest.main()
