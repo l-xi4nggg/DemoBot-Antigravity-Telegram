@@ -72,6 +72,19 @@ def index():
         return f"<h3>Initialization Error:</h3><pre>{init_error}</pre>", 500
     return "Bot is running on Vercel!"
 
+@app.route("/set_webhook", methods=["GET"])
+def set_webhook_route():
+    if init_error:
+        return f"<h3>Initialization Error:</h3><pre>{init_error}</pre>", 500
+    host = request.headers.get("Host")
+    scheme = "https" if request.is_secure or request.headers.get("X-Forwarded-Proto") == "https" else "http"
+    webhook_url = f"{scheme}://{host}/webhook"
+    try:
+        run_async(bot.set_webhook(url=webhook_url))
+        return f"Webhook successfully registered to: {webhook_url}", 200
+    except Exception as e:
+        return f"Failed to register webhook: {str(e)}", 500
+
 @app.route("/cron/reminders", methods=["GET", "POST"])
 def cron_reminders():
     # If CRON_SECRET is configured in environment, verify the Authorization header
