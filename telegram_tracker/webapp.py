@@ -119,8 +119,8 @@ def webhook():
                     run_async(send_message_safely(chat_id, GUIDE_TEXT, parse_mode="Markdown"))
         return "OK", 200
 
-    # Process message
-    message = update.get("message")
+    # Process message (regular or edited)
+    message = update.get("message") or update.get("edited_message")
     if not message:
         return "OK", 200
 

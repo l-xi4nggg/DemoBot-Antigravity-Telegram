@@ -466,6 +466,34 @@ class TestWebappService(unittest.TestCase):
                 self.assertEqual(response.status_code, 200)
                 mock_send.assert_called_with(-4001, GUIDE_TEXT, parse_mode="Markdown")
 
+    def test_webapp_edited_message(self):
+        from telegram_tracker.webapp import app
+        from unittest.mock import patch
+
+        with app.test_client() as client:
+            with patch("telegram_tracker.webapp.send_message_safely", new_callable=AsyncMock) as mock_send:
+                payload = {
+                    "edited_message": {
+                        "message_id": 456,
+                        "chat": {"id": -3002, "title": "Webapp Edited Group", "type": "group"},
+                        "from": {"id": 100, "username": "any_user", "first_name": "Alice"},
+                        "text": "G5555 cut"
+                    }
+                }
+                response = client.post("/webhook", json=payload)
+                self.assertEqual(response.status_code, 200)
+                
+                # Check DB
+                group = self.db.query(Group).filter(Group.id == -3002).first()
+                self.assertIsNotNone(group)
+                
+                record = self.db.query(Record).filter(Record.group_id == -3002, Record.code == "G5555").first()
+                self.assertIsNotNone(record)
+                self.assertEqual(record.status, "SENT")
+                
+                # Verify mock reply
+                mock_send.assert_called_once()
+
 
 class TestMyChatMemberHandler(unittest.TestCase):
     async def async_test_handle_my_chat_member(self):
