@@ -191,16 +191,16 @@ async def find_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         manager_tags = db_group.manager_tag if db_group and db_group.manager_tag else ""
         
         record_map = {r.code: r for r in records}
-        response_blocks = []
+        
+        groups = {}
+        group_keys = []
         pending_codes = []
         
         for code in codes:
             record = record_map.get(code)
             if not record:
-                block = (
-                    f"• {code}\n\n"
-                    f"🔸ស្ថានភាព៖ រកមិនឃើញ"
-                )
+                key = ("NOT_FOUND", "", "")
+                details = "🔸ស្ថានភាព៖ រកមិនឃើញ"
             else:
                 send_date = record.send_time.strftime("%Y-%m-%d")
                 if record.status == "SENT":
@@ -208,30 +208,42 @@ async def find_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     send_time_naive = record.send_time.replace(tzinfo=None) if record.send_time.tzinfo else record.send_time
                     duration = now - send_time_naive
                     pending_days = max(0, duration.days)
-                    block = (
-                        f"• {record.code}\n\n"
+                    key = ("SENT", send_date, pending_days)
+                    details = (
                         f"🔸ស្ថានភាព៖ មិនទាន់បានទទួល\n"
                         f"📅កាលបរិច្ឆេទកាត់ថ្លៃដើម៖ {send_date}\n"
                         f"📅 Pending: {pending_days}ថ្ងៃ"
                     )
                 else:
                     recv_date = record.receive_time.strftime("%Y-%m-%d")
-                    block = (
-                        f"• {record.code}\n\n"
+                    key = ("RECEIVED", send_date, recv_date)
+                    details = (
                         f"🔸ស្ថានភាព៖ បានទទួល\n"
                         f"📅កាលបរិច្ឆេទកាត់ថ្លៃដើម៖ {send_date}\n"
                         f"📅កាលបរិច្ឆេទទទួល៖ {recv_date}"
                     )
+            
+            if key not in groups:
+                groups[key] = {"codes": [], "details": details}
+                group_keys.append(key)
+            groups[key]["codes"].append(code)
+            
+        response_blocks = []
+        for key in group_keys:
+            group_data = groups[key]
+            codes_str = "\n".join(group_data["codes"])
+            block = f"{codes_str}\n\n{group_data['details']}"
             response_blocks.append(block)
             
-        response_text = "លេខបេ៖\n" + "\n\n".join(response_blocks)
+        response_text = "\n\n".join(response_blocks)
         
         if pending_codes:
             pending_codes_str = "\n".join(pending_codes)
+            manager_suffix = f" {manager_tags}" if manager_tags else ""
             trailer = (
                 f"\n\nសូមជួយឆែកនិងតាមឥវ៉ាន់លេខបេ៖\n\n"
                 f"{pending_codes_str}\n\n"
-                f"សូមអរគុណ {manager_tags}".strip()
+                f"សូមអរគុណ{manager_suffix}"
             )
             response_text += trailer
             
