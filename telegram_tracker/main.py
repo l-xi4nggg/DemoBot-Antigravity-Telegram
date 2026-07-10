@@ -14,6 +14,7 @@ from telegram_tracker.handlers import (
     setservice_handler,
     replaceservice_handler,
     resetservice_handler,
+    checkservice_handler,
     pending_handler,
     completed_handler,
     find_handler,
@@ -41,6 +42,7 @@ async def post_init(application: Application) -> None:
         BotCommand("setservice", "Add customer service members"),
         BotCommand("replaceservice", "Replace a service member"),
         BotCommand("resetservice", "Clear all service members"),
+        BotCommand("checkservice", "Check current customer service members"),
         BotCommand("pending", "List all pending codes"),
         BotCommand("completed", "List recent completed codes"),
         BotCommand("find", "Search details of a specific code"),
@@ -87,6 +89,7 @@ def main() -> None:
     application.add_handler(setservice_handler)
     application.add_handler(replaceservice_handler)
     application.add_handler(resetservice_handler)
+    application.add_handler(checkservice_handler)
     application.add_handler(pending_handler)
     application.add_handler(completed_handler)
     application.add_handler(find_handler)

@@ -378,6 +378,23 @@ class TestServiceCommands(unittest.TestCase):
         self.db.refresh(group)
         self.assertIsNone(group.manager_tag)
 
+        # Test /checkservice when NOT set
+        from telegram_tracker.handlers.admin import check_service
+        update.message.reply_text.reset_mock()
+        await check_service(update, context)
+        update.message.reply_text.assert_called_with(
+            "មិនទាន់មានសមាជិកបម្រើអតិថិជនត្រូវបានកំណត់ឡើយទេ។"
+        )
+
+        # Test /checkservice when set
+        context.args = ["@cs1", "@cs2"]
+        await set_service(update, context)
+        update.message.reply_text.reset_mock()
+        await check_service(update, context)
+        update.message.reply_text.assert_called_with(
+            "សមាជិកបម្រើអតិថិជនបច្ចុប្បន្ន៖ @cs1 @cs2"
+        )
+
     def test_handlers(self):
         import asyncio
         asyncio.run(self.async_test_handlers())

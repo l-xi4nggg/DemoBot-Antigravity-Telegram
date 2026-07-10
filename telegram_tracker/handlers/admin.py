@@ -277,13 +277,30 @@ async def list_completed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 from telegram_tracker.handlers.utils import reply_safely
 
+async def check_service(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Checks the currently configured customer service members for this group."""
+    chat = update.effective_chat
+    if not chat or chat.type not in ["group", "supergroup"]:
+        await reply_safely(update.message, "This command can only be used in group chats.")
+        return
+
+    with get_db() as db:
+        db_group = upsert_group(db, chat.id, chat.title or f"Group {chat.id}")
+        manager_tags = db_group.manager_tag
+        
+    if manager_tags:
+        await reply_safely(update.message, f"សមាជិកបម្រើអតិថិជនបច្ចុប្បន្ន៖ {manager_tags}")
+    else:
+        await reply_safely(update.message, "មិនទាន់មានសមាជិកបម្រើអតិថិជនត្រូវបានកំណត់ឡើយទេ។")
+
 GUIDE_TEXT = (
     "📖 *Item Packet Tracker Bot Guide*\n"
     "Here is how to configure and use the bot in this group: ខាងក្រោមនេះជាវិធីកំណត់រចនាសម្ព័ន្ធ (Configure) និងប្រើប្រាស់ BOT នៅក្នុងក្រុមនេះ៖\n\n"
     "1️⃣ *Configure Customer Service*: ការកំណត់សមាជិកបម្រើអតិថិជន\n"
     "• `/setservice @username1 [@username2 ...]` - បន្ថែមសមាជិកបម្រើអតិថិជន (អតិបរមា ៤ នាក់)\n"
     "• `/replaceservice @old_username @new_username` - ផ្លាស់ប្តូរសមាជិកបម្រើអតិថិជន\n"
-    "• `/resetservice` - លុបសមាជិកបម្រើអតិថិជនទាំងអស់ចេញ\n\n"
+    "• `/resetservice` - លុបសមាជិកបម្រើអតិថិជនទាំងអស់ចេញ\n"
+    "• `/checkservice` - ពិនិត្យមើលសមាជិកបម្រើអតិថិជនបច្ចុប្បន្ន\n\n"
     "2️⃣ *Record Sent Packets*: ការកត់ត្រាបញ្ញើដែលបានផ្ញើ\n"
     "• `[កូដបេ] cut` / `[កូដបេ] paid` / `[កូដបេ] កាត់` / `[កូដបេ] បានកាត់` - Record code as pending/sent\n"
     "• Ex: `G26062588521 បានកាត់`\n\n"
@@ -309,6 +326,7 @@ async def show_guide(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 setservice_handler = CommandHandler("setservice", set_service)
 replaceservice_handler = CommandHandler("replaceservice", replace_service)
 resetservice_handler = CommandHandler("resetservice", reset_service)
+checkservice_handler = CommandHandler("checkservice", check_service)
 pending_handler = CommandHandler("pending", list_pending)
 completed_handler = CommandHandler("completed", list_completed)
 find_handler = CommandHandler("find", find_code)

@@ -234,6 +234,16 @@ def webhook():
                 
             run_async(send_message_safely(chat_id, "✅ Customer service members reset. No service members are set for this group.", reply_to_message_id=message_id))
             
+        elif cmd == "/checkservice":
+            with get_db() as db:
+                db_group = upsert_group(db, chat_id, chat_title)
+                manager_tags = db_group.manager_tag
+                
+            if manager_tags:
+                run_async(send_message_safely(chat_id, f"សមាជិកបម្រើអតិថិជនបច្ចុប្បន្ន៖ {manager_tags}", reply_to_message_id=message_id))
+            else:
+                run_async(send_message_safely(chat_id, "មិនទាន់មានសមាជិកបម្រើអតិថិជនត្រូវបានកំណត់ឡើយទេ។", reply_to_message_id=message_id))
+            
         elif cmd == "/pending":
             with get_db() as db:
                 pending_records = (
