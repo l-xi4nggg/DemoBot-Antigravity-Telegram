@@ -337,43 +337,47 @@ def webhook():
                 date_str = record.send_time.strftime("%Y-%m-%d")
                 if recorded_new:
                     response = (
-                        f"✅ Recorded\n\n"
-                        f"Code: {record.code}\n\n"
-                        f"Status: Pending\n\n"
-                        f"Sender: {sender_name}\n\n"
-                        f"Date: {date_str}"
+                        f"កត់ត្រាកូដដែលបានកាត់ថ្លៃដើម (ចំនួន 1កូដថ្មី)\n\n"
+                        f"លេខបេ៖ {record.code}\n\n"
+                        f"ស្ថានភាព៖ មិនទាន់បានទទួល\n"
+                        f"អ្នកផ្ញើកូដ៖ {sender_name}\n"
+                        f"កាលបរិច្ឆេទ៖ {date_str}"
                     )
                 else:
-                    status_display = "Pending" if record.status == "SENT" else "Received"
+                    status_display = "មិនទាន់បានទទួល" if record.status == "SENT" else "បានទទួល"
                     response = (
-                        f"⚠️ Code Already Recorded\n\n"
-                        f"Code: {record.code}\n\n"
-                        f"Status: {status_display}\n\n"
-                        f"Sender: {record.sender.full_name}\n\n"
-                        f"Date: {record.send_time.strftime('%Y-%m-%d')}"
+                        f"⚠️ កូដនេះត្រូវបានកត់ត្រារួចហើយ\n\n"
+                        f"លេខបេ៖ {record.code}\n\n"
+                        f"ស្ថានភាព៖ {status_display}\n"
+                        f"អ្នកផ្ញើកូដ៖ {record.sender.full_name}\n"
+                        f"កាលបរិច្ឆេទ៖ {record.send_time.strftime('%Y-%m-%d')}"
                     )
             else:
                 summary_parts = []
                 if recorded_new:
-                    summary_parts.append(f"{len(recorded_new)} new")
+                    summary_parts.append(f"{len(recorded_new)}កូដថ្មី")
                 if recorded_existing:
-                    summary_parts.append(f"{len(recorded_existing)} already registered")
+                    summary_parts.append(f"{len(recorded_existing)}កូដមានរួច")
                 summary_str = ", ".join(summary_parts)
                 
-                response_lines = [f"✅ Recorded ({summary_str})\n"]
+                response_lines = [f"កត់ត្រាកូដដែលបានកាត់ថ្លៃដើម (ចំនួន {summary_str})\n"]
                 if recorded_new:
-                    response_lines.append("New Codes:")
+                    if recorded_existing:
+                        response_lines.append("លេខបេថ្មី៖")
+                    else:
+                        response_lines.append("លេខបេ៖")
                     for r in recorded_new:
-                        response_lines.append(f"• {r.code} (Pending)")
+                        response_lines.append(f"• {r.code}")
                     response_lines.append("")
                 if recorded_existing:
-                    response_lines.append("Already Recorded:")
+                    response_lines.append("លេខបេមានរួច៖")
                     for r in recorded_existing:
-                        status_display = "Pending" if r.status == "SENT" else "Received"
+                        status_display = "មិនទាន់បានទទួល" if r.status == "SENT" else "បានទទួល"
                         response_lines.append(f"• {r.code} ({status_display})")
                     response_lines.append("")
-                response_lines.append(f"Sender: {sender_name}")
-                response_lines.append(f"Date: {now.strftime('%Y-%m-%d')}")
+                response_lines.append(f"ស្ថានភាព៖ មិនទាន់បានទទួល")
+                response_lines.append(f"អ្នកផ្ញើកូដ៖ {sender_name}")
+                response_lines.append(f"កាលបរិច្ឆេទ៖ {now.strftime('%Y-%m-%d')}")
                 response = "\n".join(response_lines)
                 
         elif status == "RECEIVED":
@@ -397,42 +401,43 @@ def webhook():
                     duration = record.receive_time - record.send_time
                     pending_days = max(0, duration.days)
                     response = (
-                        f"✅ Updated\n\n"
-                        f"Code: {record.code}\n\n"
-                        f"Status: Received\n\n"
-                        f"Sender: {sender_name}\n\n"
-                        f"Receiver: {receiver_name}\n\n"
-                        f"Date Sent: {send_date}\n\n"
-                        f"Date Received: {recv_date}\n\n"
-                        f"Pending Duration: {pending_days} Days\n\n"
-                        f"Updated: {recv_date}"
+                        f"✅ បានទទួលកូដរួចរាល់ (ចំនួន 1កូដ)\n\n"
+                        f"លេខបេ៖ {record.code}\n\n"
+                        f"ស្ថានភាព៖ បានទទួល\n"
+                        f"អ្នកផ្ញើកូដ៖ {sender_name}\n"
+                        f"អ្នកទទួលកូដ៖ {receiver_name}\n"
+                        f"កាលបរិច្ឆេទផ្ញើ៖ {send_date}\n"
+                        f"កាលបរិច្ឆេទទទួល៖ {recv_date}\n"
+                        f"រយៈពេលរង់ចាំ៖ {pending_days} ថ្ងៃ\n"
+                        f"កាលបរិច្ឆេទកែប្រែ៖ {recv_date}"
                     )
                 else:
                     response = (
-                        f"❌ Code Not Found\n\n"
-                        f"Code {codes[0]} was not found/registered in this group."
+                        f"❌ រកមិនឃើញកូដ\n\n"
+                        f"កូដ {codes[0]} មិនត្រូវបានរកឃើញ ឬកត់ត្រាក្នុងគ្រុបនេះទេ។"
                     )
             else:
                 summary_parts = []
                 if updated_records:
-                    summary_parts.append(f"{len(updated_records)} completed")
+                    summary_parts.append(f"{len(updated_records)}កូដបានទទួល")
                 if not_found_codes:
-                    summary_parts.append(f"{len(not_found_codes)} not found")
+                    summary_parts.append(f"{len(not_found_codes)}កូដរកមិនឃើញ")
                 summary_str = ", ".join(summary_parts)
                 
-                response_lines = [f"✅ Completed ({summary_str})\n"]
+                response_lines = [f"✅ ទទួលកូដរួចរាល់ (ចំនួន {summary_str})\n"]
                 if updated_records:
-                    response_lines.append("Completed Codes:")
+                    response_lines.append("លេខបេបានទទួល៖")
                     for r in updated_records:
-                        response_lines.append(f"• {r.code} (Received)")
+                        response_lines.append(f"• {r.code}")
                     response_lines.append("")
                 if not_found_codes:
-                    response_lines.append("Not Found Codes:")
+                    response_lines.append("លេខបេរកមិនឃើញ៖")
                     for c in not_found_codes:
                         response_lines.append(f"• {c}")
                     response_lines.append("")
-                response_lines.append(f"Receiver: {receiver_name}")
-                response_lines.append(f"Date: {now.strftime('%Y-%m-%d')}")
+                response_lines.append(f"ស្ថានភាព៖ បានទទួល")
+                response_lines.append(f"អ្នកទទួលកូដ៖ {receiver_name}")
+                response_lines.append(f"កាលបរិច្ឆេទ៖ {now.strftime('%Y-%m-%d')}")
                 response = "\n".join(response_lines)
 
     run_async(send_message_safely(chat_id, response, reply_to_message_id=message_id))

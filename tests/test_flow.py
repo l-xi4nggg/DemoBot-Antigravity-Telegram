@@ -537,5 +537,64 @@ class TestMyChatMemberHandler(unittest.TestCase):
         asyncio.run(self.async_test_handle_my_chat_member())
 
 
+class TestKhmerFormatting(unittest.TestCase):
+    def setUp(self):
+        from telegram_tracker.database import init_db, SessionLocal
+        init_db()
+        self.db = SessionLocal()
+
+    def tearDown(self):
+        self.db.close()
+        from telegram_tracker.database import Base, engine
+        Base.metadata.drop_all(bind=engine)
+        engine.dispose()
+
+    async def async_test_khmer_message_responses(self):
+        from telegram_tracker.handlers.message import handle_group_message
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        # Mock update
+        update = MagicMock()
+        update.effective_chat.id = -6001
+        update.effective_chat.title = "Khmer Test Group"
+        update.effective_chat.type = "group"
+        update.effective_user.id = 777
+        update.effective_user.username = "userA"
+        update.effective_user.first_name = "User"
+        update.effective_user.last_name = "A"
+        update.effective_message.text = "G26555442232 G35566555442 cut"
+        
+        context = MagicMock()
+
+        # Mock reply_safely to capture the response text
+        with patch("telegram_tracker.handlers.message.reply_safely", new_callable=AsyncMock) as mock_reply:
+            # Run multi-code SENT
+            await handle_group_message(update, context)
+            
+            mock_reply.assert_called_once()
+            called_args = mock_reply.call_args[0]
+            response_text = called_args[1]
+            
+            self.assertIn("កត់ត្រាកូដដែលបានកាត់ថ្លៃដើម (ចំនួន 2កូដថ្មី)", response_text)
+            self.assertIn("• G26555442232", response_text)
+            self.assertIn("• G35566555442", response_text)
+            self.assertIn("ស្ថានភាព៖ មិនទាន់បានទទួល", response_text)
+            self.assertIn("អ្នកផ្ញើកូដ៖ User A", response_text)
+
+            # Reset mock for single-code SENT
+            mock_reply.reset_mock()
+            update.effective_message.text = "G11111 cut"
+            await handle_group_message(update, context)
+            
+            mock_reply.assert_called_once()
+            response_text_single = mock_reply.call_args[0][1]
+            self.assertIn("កត់ត្រាកូដដែលបានកាត់ថ្លៃដើម (ចំនួន 1កូដថ្មី)", response_text_single)
+            self.assertIn("លេខបេ៖ G11111", response_text_single)
+
+    def test_khmer_message_responses(self):
+        import asyncio
+        asyncio.run(self.async_test_khmer_message_responses())
+
+
 if __name__ == "__main__":
     unittest.main()
