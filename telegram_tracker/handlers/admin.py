@@ -157,13 +157,13 @@ async def find_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await reply_safely(update.message, "This command can only be used in group chats.")
         return
 
-    if not context.args:
+    search_text = update.effective_message.text if update.effective_message else ""
+    if not search_text:
         await reply_safely(update.message, "Usage: /find <code>")
         return
 
     from telegram_tracker.services.parser import CODE_PATTERN
 
-    search_text = " ".join(context.args)
     matches = CODE_PATTERN.finditer(search_text)
     codes = []
     seen = set()

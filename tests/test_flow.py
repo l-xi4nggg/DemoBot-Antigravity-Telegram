@@ -692,9 +692,9 @@ class TestKhmerFormatting(unittest.TestCase):
         update_cmd.effective_chat.id = -6003
         update_cmd.effective_chat.title = "Find Test Group"
         update_cmd.effective_chat.type = "group"
+        update_cmd.effective_message.text = "/find G26062588521 G99999999999"
         update_cmd.message.reply_text = AsyncMock()
         context_cmd = MagicMock()
-        context_cmd.args = ["G26062588521", "G99999999999"]
 
         with patch("telegram_tracker.handlers.admin.reply_safely", new_callable=AsyncMock) as mock_reply:
             await find_code(update_cmd, context_cmd)

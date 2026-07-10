@@ -304,13 +304,13 @@ def webhook():
                     run_async(send_message_safely(chat_id, "\n".join(response_parts), reply_to_message_id=message_id))
                     
         elif cmd == "/find":
-            if not args:
+            search_text = text
+            if not search_text:
                 run_async(send_message_safely(chat_id, "Usage: /find <code>", reply_to_message_id=message_id))
                 return "OK", 200
                 
             from telegram_tracker.services.parser import CODE_PATTERN
 
-            search_text = " ".join(args)
             matches = CODE_PATTERN.finditer(search_text)
             codes = []
             seen = set()
