@@ -395,7 +395,7 @@ def webhook():
                     block = f"{codes_str}\n\n{group_data['details']}"
                     response_blocks.append(block)
                     
-                response_text = "\n\n".join(response_blocks)
+                response_text = "ទិន្នន័យដែលបានឆែក៖\n\n" + "\n\n-----------------------\n\n".join(response_blocks)
                 
                 if pending_codes:
                     pending_codes_str = "\n".join(pending_codes)
@@ -405,7 +405,7 @@ def webhook():
                         f"{pending_codes_str}\n\n"
                         f"សូមអរគុណ{manager_suffix}"
                     )
-                    response_text += trailer
+                    response_text += "\n\n-----------------------" + trailer
                     
                 run_async(send_message_safely(chat_id, response_text, reply_to_message_id=message_id))
                     

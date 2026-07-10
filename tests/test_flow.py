@@ -703,6 +703,8 @@ class TestKhmerFormatting(unittest.TestCase):
             response_text = mock_reply.call_args[0][1]
             
             # Check Khmer layout content
+            self.assertIn("ទិន្នន័យដែលបានឆែក៖", response_text)
+            self.assertIn("-----------------------", response_text)
             self.assertIn("G26062588521", response_text)
             self.assertIn("🔸ស្ថានភាព៖ មិនទាន់បានទទួល", response_text)
             self.assertIn("📅កាលបរិច្ឆេទកាត់ថ្លៃដើម៖", response_text)

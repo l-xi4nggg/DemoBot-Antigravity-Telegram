@@ -235,7 +235,7 @@ async def find_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             block = f"{codes_str}\n\n{group_data['details']}"
             response_blocks.append(block)
             
-        response_text = "\n\n".join(response_blocks)
+        response_text = "ទិន្នន័យដែលបានឆែក៖\n\n" + "\n\n-----------------------\n\n".join(response_blocks)
         
         if pending_codes:
             pending_codes_str = "\n".join(pending_codes)
@@ -245,7 +245,7 @@ async def find_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"{pending_codes_str}\n\n"
                 f"សូមអរគុណ{manager_suffix}"
             )
-            response_text += trailer
+            response_text += "\n\n-----------------------" + trailer
             
         await reply_safely(update.message, response_text)
 
