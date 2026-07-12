@@ -473,6 +473,11 @@ class TestWebappService(unittest.TestCase):
                 self.db.refresh(group)
                 self.assertIsNone(group.manager_tag)
 
+                # 4. Test /reminders
+                payload["message"]["text"] = "/reminders"
+                response = client.post("/webhook", json=payload)
+                self.assertEqual(response.status_code, 200)
+
     def test_webapp_my_chat_member(self):
         from telegram_tracker.webapp import app, GUIDE_TEXT
         from unittest.mock import patch
