@@ -19,6 +19,7 @@ from telegram_tracker.handlers import (
     completed_handler,
     find_handler,
     guide_handler,
+    reminders_handler,
 )
 from telegram_tracker.scheduler import setup_scheduler
 
@@ -46,6 +47,7 @@ async def post_init(application: Application) -> None:
         BotCommand("pending", "List all pending codes"),
         BotCommand("completed", "List recent completed codes"),
         BotCommand("find", "Search details of a specific code"),
+        BotCommand("reminders", "Check sent and upcoming reminders"),
     ]
     await application.bot.set_my_commands(commands, scope=BotCommandScopeDefault())
     await application.bot.set_my_commands(commands, scope=BotCommandScopeAllGroupChats())
@@ -93,6 +95,7 @@ def main() -> None:
     application.add_handler(pending_handler)
     application.add_handler(completed_handler)
     application.add_handler(find_handler)
+    application.add_handler(reminders_handler)
     application.add_handler(my_chat_member_handler)
     application.add_handler(group_message_handler)
 

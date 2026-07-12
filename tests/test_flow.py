@@ -217,8 +217,17 @@ class TestPhase2Reminders(unittest.TestCase):
         await check_pending_reminders(mock_bot_app)
 
         # Check mock calls
-        # We expect 3 send_message calls (for G222, G555, G777)
-        self.assertEqual(mock_bot_app.bot.send_message.call_count, 3)
+        # We expect 1 consolidated send_message call (containing G222, G555, G777)
+        self.assertEqual(mock_bot_app.bot.send_message.call_count, 1)
+        
+        # Verify content
+        sent_text = mock_bot_app.bot.send_message.call_args[1]["text"]
+        self.assertIn("G222", sent_text)
+        self.assertIn("G555", sent_text)
+        self.assertIn("G777", sent_text)
+        self.assertIn("កំពុងរង់ចាំ", sent_text)
+        self.assertIn("មិនទាន់ទទួលបាន", sent_text)
+        self.assertIn("ការរំលឹកចុងក្រោយ", sent_text)
 
         # Verify reminders in DB
         r_g111 = self.db.query(Reminder).filter(Reminder.code == "G111").first()
@@ -251,6 +260,11 @@ class TestPhase2Reminders(unittest.TestCase):
 
         await check_pending_reminders(mock_bot_app)
         self.assertEqual(mock_bot_app.bot.send_message.call_count, 1)
+        
+        sent_text_2 = mock_bot_app.bot.send_message.call_args[1]["text"]
+        self.assertIn("G222", sent_text_2)
+        self.assertNotIn("G555", sent_text_2) # G555 last_reminder_day is already 5, so no reminder trigger
+        
         self.db.refresh(r_g222)
         self.assertEqual(r_g222.last_reminder_day, 5)
 
@@ -721,6 +735,61 @@ class TestKhmerFormatting(unittest.TestCase):
     def test_khmer_find_response(self):
         import asyncio
         asyncio.run(self.async_test_khmer_find_response())
+
+    async def async_test_khmer_reminders_command(self):
+        from telegram_tracker.handlers.admin import show_reminders
+        from telegram_tracker.handlers.message import handle_group_message
+        from telegram_tracker.database import SessionLocal
+        from telegram_tracker.models.reminder import Reminder
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        # 1. Setup records
+        update = MagicMock()
+        update.effective_chat.id = -6004
+        update.effective_chat.title = "Reminder Cmd Group"
+        update.effective_chat.type = "group"
+        update.effective_user.id = 888
+        update.effective_user.username = "userB"
+        update.effective_user.first_name = "User"
+        update.effective_user.last_name = "B"
+        update.effective_message.text = "G111 cut"
+        context = MagicMock()
+
+        # Submit code first
+        with patch("telegram_tracker.handlers.message.reply_safely", new_callable=AsyncMock):
+            await handle_group_message(update, context)
+
+        # Set G111 send_time to 3 days ago and create a Reminder tracker record for G111 (last_reminder_day=2)
+        db = SessionLocal()
+        rec = db.query(Record).filter(Record.group_id == -6004, Record.code == "G111").first()
+        rec.send_time = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) - datetime.timedelta(days=3)
+        rem = Reminder(group_id=-6004, code="G111", last_reminder_day=2)
+        db.add(rem)
+        db.commit()
+        db.close()
+
+        # 2. Call show_reminders command
+        update_cmd = MagicMock()
+        update_cmd.effective_chat.id = -6004
+        update_cmd.effective_chat.type = "group"
+        update_cmd.message.reply_text = AsyncMock()
+
+        with patch("telegram_tracker.handlers.admin.reply_safely", new_callable=AsyncMock) as mock_reply:
+            await show_reminders(update_cmd, context)
+            
+            mock_reply.assert_called_once()
+            response_text = mock_reply.call_args[0][1]
+            
+            # Check Khmer layout content
+            self.assertIn("ស្ថានភាពការរំលឹកលេខកូដបេ", response_text)
+            self.assertIn("លេខកូដដែលបានរំលឹករួច", response_text)
+            self.assertIn("លេខកូដដែលនឹងត្រូវរំលឹកឆាប់ៗ", response_text)
+            self.assertIn("G111: បានរំលឹក 2ថ្ងៃ", response_text)
+            self.assertIn("G111: នឹងរំលឹក (Day 5)", response_text)
+
+    def test_khmer_reminders_command(self):
+        import asyncio
+        asyncio.run(self.async_test_khmer_reminders_command())
 
 
 if __name__ == "__main__":

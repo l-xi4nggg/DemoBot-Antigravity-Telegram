@@ -8,6 +8,7 @@ from telegram_tracker.handlers.admin import (
     completed_handler,
     find_handler,
     guide_handler,
+    reminders_handler,
 )
 
 __all__ = [
@@ -21,4 +22,5 @@ __all__ = [
     "completed_handler",
     "find_handler",
     "guide_handler",
+    "reminders_handler",
 ]

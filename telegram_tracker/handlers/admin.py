@@ -324,6 +324,7 @@ GUIDE_TEXT = (
     "• `/pending` - បង្ហាញកូដបេដែលភ្នាក់ងារមិនទាន់ទទួលបាន\n"
     "• `/completed` - បង្ហាញកូដបេដែលភ្នាក់ងារទទួលបាន\n"
     "• `/find [code]` - ឆែករកមើលលេខបេដែលបានកាត់ថ្លៃដើមរួចរាល់\n"
+    "• `/reminders` - ពិនិត្យមើលស្ថានភាពរំលឹកលេខកូដបេ (បង្ហាញកូដដែលបានរំលឹករួច និងកូដដែលនឹងត្រូវរំលឹកឆាប់ៗ)\n"
     "• `/guide` - ការណែនាំវិធីប្រើប្រាស់"
 )
 
@@ -336,6 +337,79 @@ async def show_guide(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if update.effective_message:
         await send_guide(update.effective_message)
 
+async def show_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Checks and displays sent and upcoming reminders for the group."""
+    chat = update.effective_chat
+    if not chat or chat.type not in ["group", "supergroup"]:
+        await reply_safely(update.message, "This command can only be used in group chats.")
+        return
+
+    from telegram_tracker.models.reminder import Reminder
+    import datetime
+
+    now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+
+    with get_db() as db:
+        pending_records = (
+            db.query(Record)
+            .filter(Record.group_id == chat.id, Record.status == "SENT")
+            .order_by(Record.send_time.asc())
+            .all()
+        )
+        
+        if not pending_records:
+            await reply_safely(update.message, "មិនមានលេខកូដបេកំពុងតាមដានឡើយ។")
+            return
+
+        reminded_list = []
+        upcoming_list = []
+
+        for r in pending_records:
+            send_time_naive = r.send_time.replace(tzinfo=None) if r.send_time.tzinfo else r.send_time
+            age_days = (now - send_time_naive).days
+            
+            reminder = db.query(Reminder).filter(
+                Reminder.group_id == r.group_id,
+                Reminder.code == r.code
+            ).first()
+            
+            last_day = reminder.last_reminder_day if reminder else 0
+
+            # 1. Reminded list
+            if last_day > 0:
+                reminded_list.append(f"• {r.code}: បានរំលឹក {last_day}ថ្ងៃ | រយៈពេល៖ {age_days}ថ្ងៃ")
+
+            # 2. Upcoming list
+            next_day = 0
+            if last_day == 0:
+                next_day = 2
+            elif last_day == 2:
+                next_day = 5
+            elif last_day == 5:
+                next_day = 7
+
+            if next_day > 0:
+                days_left = max(0, next_day - age_days)
+                upcoming_list.append(
+                    f"• {r.code}: នឹងរំលឹក (Day {next_day}) ក្នុងរយៈពេល {days_left}ថ្ងៃទៀត (រយៈពេលបច្ចុប្បន្ន៖ {age_days}ថ្ងៃ)"
+                )
+
+        response_parts = ["🔔 *ស្ថានភាពការរំលឹកលេខកូដបេ (Reminder Status)*"]
+        
+        response_parts.append("\n1️⃣ *លេខកូដដែលបានរំលឹករួច (Sent Reminders)៖*")
+        if reminded_list:
+            response_parts.extend(reminded_list)
+        else:
+            response_parts.append("• គ្មាន")
+
+        response_parts.append("\n2️⃣ *លេខកូដដែលនឹងត្រូវរំលឹកឆាប់ៗ (Upcoming Reminders)៖*")
+        if upcoming_list:
+            response_parts.extend(upcoming_list)
+        else:
+            response_parts.append("• គ្មាន")
+
+        await reply_safely(update.message, "\n".join(response_parts), parse_mode="Markdown")
+
 setservice_handler = CommandHandler("setservice", set_service)
 replaceservice_handler = CommandHandler("replaceservice", replace_service)
 resetservice_handler = CommandHandler("resetservice", reset_service)
@@ -344,3 +418,4 @@ pending_handler = CommandHandler("pending", list_pending)
 completed_handler = CommandHandler("completed", list_completed)
 find_handler = CommandHandler("find", find_code)
 guide_handler = CommandHandler("guide", show_guide)
+reminders_handler = CommandHandler("reminders", show_reminders)

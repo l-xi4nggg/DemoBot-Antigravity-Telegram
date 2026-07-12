@@ -10,7 +10,8 @@ logger = logging.getLogger(__name__)
 async def check_pending_reminders(bot_app) -> None:
     """
     Checks all pending records (status = SENT) and sends reminders if they
-    are 2, 5, or 7 days old, and updates the reminder tracking.
+    are 2, 5, or 7 days old. Reminders for each group are consolidated into
+    a single Khmer table message, and reminder tracking is updated.
     """
     logger.info("Running pending reminders check...")
     now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
@@ -23,6 +24,9 @@ async def check_pending_reminders(bot_app) -> None:
             .filter(Record.status == "SENT")
             .all()
         )
+        
+        from collections import defaultdict
+        group_reminders = defaultdict(list)
         
         for record in pending_records:
             # Calculate age in days
@@ -38,51 +42,61 @@ async def check_pending_reminders(bot_app) -> None:
             
             last_day = reminder.last_reminder_day if reminder else 0
                 
-            # Check what level of reminder we need to send
-            target_day = 0
-            message_text = ""
-            
-            # Find the manager tag, default to "@manager" if not set
-            manager_tag = record.group.manager_tag if record.group.manager_tag else "@manager"
-            
             # Determine appropriate reminder level based on current age
+            target_day = 0
             if age_days >= 7 and last_day < 7:
                 target_day = 7
-                message_text = (
-                    f"Reminder\n\n"
-                    f"7 days\n\n"
-                    f"Final reminder\n\n"
-                    f"{manager_tag}"
-                )
             elif age_days >= 5 and last_day < 5:
                 target_day = 5
-                message_text = (
-                    f"Reminder\n\n"
-                    f"Pending\n\n"
-                    f"5 days\n\n"
-                    f"{manager_tag}"
-                )
             elif age_days >= 2 and last_day < 2:
                 target_day = 2
-                message_text = (
-                    f"Reminder\n\n"
-                    f"Pending Code\n\n"
-                    f"{record.code}\n\n"
-                    f"Waiting\n\n"
-                    f"2 days\n\n"
-                    f"{manager_tag}"
+                
+            if target_day > 0:
+                group_reminders[record.group_id].append((record, reminder, target_day))
+                
+        # Send one consolidated reminder message per group
+        for group_id, items in group_reminders.items():
+            first_record = items[0][0]
+            # Find the manager tag, default to "@manager" if not set
+            manager_tag = first_record.group.manager_tag if first_record.group and first_record.group.manager_tag else "@manager"
+            
+            # Format the Khmer table
+            table_lines = [
+                "| លេខកូដបេ (Code) | រយៈពេល (Age) | ស្ថានភាព (Status) |",
+                "|-----------------|--------------|-------------------|",
+            ]
+            for record, reminder, target_day in items:
+                days_str = f"{target_day} ថ្ងៃ"
+                if target_day == 7:
+                    status_str = "ការរំលឹកចុងក្រោយ"
+                elif target_day == 5:
+                    status_str = "មិនទាន់ទទួលបាន"
+                else:
+                    status_str = "កំពុងរង់ចាំ"
+                
+                table_lines.append(f"| {record.code:<15} | {days_str:<12} | {status_str:<17} |")
+                
+            table_content = "\n".join(table_lines)
+            message_text = (
+                f"🔔 *ការរំលឹកតាមដានលេខកូដបេ (Reminder)*\n\n"
+                f"```\n"
+                f"{table_content}\n"
+                f"```\n\n"
+                f"សូមជួយឆែកនិងតាមឥវ៉ាន់ឱ្យលឿន។\n"
+                f"សូមអរគុណ {manager_tag}"
+            )
+            
+            try:
+                logger.info(f"Sending consolidated reminder for {len(items)} codes in group {group_id}")
+                # Send message via telegram bot
+                await bot_app.bot.send_message(
+                    chat_id=group_id,
+                    text=message_text,
+                    parse_mode="Markdown"
                 )
                 
-            if target_day > 0 and message_text:
-                try:
-                    logger.info(f"Sending Day {target_day} reminder for code {record.code} in group {record.group_id}")
-                    # Send message via telegram bot
-                    await bot_app.bot.send_message(
-                        chat_id=record.group_id,
-                        text=message_text
-                    )
-                    
-                    # Create the reminder tracker record if it didn't exist
+                # Update reminder trackers
+                for record, reminder, target_day in items:
                     if not reminder:
                         reminder = Reminder(
                             group_id=record.group_id,
@@ -92,9 +106,8 @@ async def check_pending_reminders(bot_app) -> None:
                         db.add(reminder)
                         db.flush()
                         
-                    # Update reminder record
                     reminder.last_reminder_day = target_day
-                    db.commit()
-                except Exception as e:
-                    logger.error(f"Failed to send reminder for code {record.code}: {e}")
-                    db.rollback()
+                db.commit()
+            except Exception as e:
+                logger.error(f"Failed to send consolidated reminder for group {group_id}: {e}")
+                db.rollback()
