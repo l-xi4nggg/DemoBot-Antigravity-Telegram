@@ -474,6 +474,13 @@ class TestWebappService(unittest.TestCase):
                 self.assertIsNone(group.manager_tag)
 
                 # 4. Test /reminders
+                import datetime
+                # Add a pending record to the db first
+                from telegram_tracker.services.tracker import record_submission
+                from telegram_tracker.models.reminder import Reminder
+                record_submission(self.db, -3001, "G12345", 100, datetime.datetime.now(datetime.timezone.utc))
+                self.db.commit()
+
                 payload["message"]["text"] = "/reminders"
                 response = client.post("/webhook", json=payload)
                 self.assertEqual(response.status_code, 200)

@@ -459,14 +459,22 @@ def webhook():
                     response_parts = ["🔔 *ស្ថានភាពការរំលឹកលេខកូដបេ (Reminder Status)*"]
                     
                     response_parts.append("\n1️⃣ *លេខកូដដែលបានរំលឹករួច (Sent Reminders)៖*")
-                    if reminded_list:
-                        response_parts.extend(reminded_list)
+                    if reminded_groups:
+                        for (last_day, age_days), codes in reminded_groups.items():
+                            header = f"\n📅 បានរំលឹក {last_day}ថ្ងៃ | រយៈពេល៖ {age_days}ថ្ងៃ៖"
+                            response_parts.append(header)
+                            for code in codes:
+                                response_parts.append(f"• {code}")
                     else:
                         response_parts.append("• គ្មាន")
 
                     response_parts.append("\n2️⃣ *លេខកូដដែលនឹងត្រូវរំលឹកឆាប់ៗ (Upcoming Reminders)៖*")
-                    if upcoming_list:
-                        response_parts.extend(upcoming_list)
+                    if upcoming_groups:
+                        for (next_day, days_left, age_days), codes in upcoming_groups.items():
+                            header = f"\n📅 នឹងរំលឹក (Day {next_day}) ក្នុងរយៈពេល {days_left}ថ្ងៃទៀត (រយៈពេលបច្ចុប្បន្ន៖ {age_days}ថ្ងៃ)៖"
+                            response_parts.append(header)
+                            for code in codes:
+                                response_parts.append(f"• {code}")
                     else:
                         response_parts.append("• គ្មាន")
 
