@@ -78,10 +78,10 @@ async def check_pending_reminders(bot_app) -> None:
                 
             table_content = "\n".join(table_lines)
             message_text = (
-                f"🔔 *ការរំលឹកតាមដានលេខកូដបេ (Reminder)*\n\n"
-                f"```\n"
+                f"🔔 <b>ការរំលឹកតាមដានលេខកូដបេ (Reminder)</b>\n\n"
+                f"<pre>\n"
                 f"{table_content}\n"
-                f"```\n\n"
+                f"</pre>\n\n"
                 f"សូមជួយឆែកនិងតាមឥវ៉ាន់ឱ្យលឿន។\n"
                 f"សូមអរគុណ {manager_tag}"
             )
@@ -92,7 +92,7 @@ async def check_pending_reminders(bot_app) -> None:
                 await bot_app.bot.send_message(
                     chat_id=group_id,
                     text=message_text,
-                    parse_mode="Markdown"
+                    parse_mode="HTML"
                 )
                 
                 # Update reminder trackers

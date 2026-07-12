@@ -311,7 +311,7 @@ GUIDE_TEXT = (
     "Here is how to configure and use the bot in this group: ខាងក្រោមនេះជាវិធីកំណត់រចនាសម្ព័ន្ធ (Configure) និងប្រើប្រាស់ BOT នៅក្នុងក្រុមនេះ៖\n\n"
     "1️⃣ *Configure Customer Service*: ការកំណត់សមាជិកបម្រើអតិថិជន\n"
     "• `/setservice @username1 [@username2 ...]` - បន្ថែមសមាជិកបម្រើអតិថិជន (អតិបរមា ៤ នាក់)\n"
-    "• `/replaceservice @old_username @new_username` - ផ្លាស់ប្តូរសមាជិកបម្រើអតិថិជន\n"
+    "• `/replaceservice @old\\_username @new\\_username` - ផ្លាស់ប្តូរសមាជិកបម្រើអតិថិជន\n"
     "• `/resetservice` - លុបសមាជិកបម្រើអតិថិជនទាំងអស់ចេញ\n"
     "• `/checkservice` - ពិនិត្យមើលសមាជិកបម្រើអតិថិជនបច្ចុប្បន្ន\n\n"
     "2️⃣ *Record Sent Packets*: ការកត់ត្រាបញ្ញើដែលបានផ្ញើ\n"
@@ -395,9 +395,9 @@ async def show_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 days_left = max(0, next_day - age_days)
                 upcoming_groups[(next_day, days_left, age_days)].append(r.code)
 
-        response_parts = ["🔔 *ស្ថានភាពការរំលឹកលេខកូដបេ (Reminder Status)*"]
+        response_parts = ["🔔 <b>ស្ថានភាពការរំលឹកលេខកូដបេ (Reminder Status)</b>"]
         
-        response_parts.append("\n1️⃣ *លេខកូដដែលបានរំលឹករួច (Sent Reminders)៖*")
+        response_parts.append("\n1️⃣ <b>លេខកូដដែលបានរំលឹករួច (Sent Reminders)៖</b>")
         if reminded_groups:
             for (last_day, age_days), codes in reminded_groups.items():
                 header = f"\n📅 បានរំលឹក {last_day}ថ្ងៃ | រយៈពេល៖ {age_days}ថ្ងៃ៖"
@@ -407,7 +407,7 @@ async def show_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         else:
             response_parts.append("• គ្មាន")
 
-        response_parts.append("\n2️⃣ *លេខកូដដែលនឹងត្រូវរំលឹកឆាប់ៗ (Upcoming Reminders)៖*")
+        response_parts.append("\n2️⃣ <b>លេខកូដដែលនឹងត្រូវរំលឹកឆាប់ៗ (Upcoming Reminders)៖</b>")
         if upcoming_groups:
             for (next_day, days_left, age_days), codes in upcoming_groups.items():
                 header = f"\n📅 នឹងរំលឹក (Day {next_day}) ក្នុងរយៈពេល {days_left}ថ្ងៃទៀត (រយៈពេលបច្ចុប្បន្ន៖ {age_days}ថ្ងៃ)៖"
@@ -417,7 +417,7 @@ async def show_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         else:
             response_parts.append("• គ្មាន")
 
-        await reply_safely(update.message, "\n".join(response_parts), parse_mode="Markdown")
+        await reply_safely(update.message, "\n".join(response_parts), parse_mode="HTML")
 
 setservice_handler = CommandHandler("setservice", set_service)
 replaceservice_handler = CommandHandler("replaceservice", replace_service)

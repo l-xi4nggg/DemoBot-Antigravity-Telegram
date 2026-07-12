@@ -425,7 +425,6 @@ def webhook():
                     now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
                     # Group reminded codes: (last_day, age_days) -> list of codes
                     reminded_groups = defaultdict(list)
-                    # Group upcoming codes: (next_day, days_left, age_days) -> list of codes
                     upcoming_groups = defaultdict(list)
 
                     for r in pending_records:
@@ -439,11 +438,9 @@ def webhook():
                         
                         last_day = reminder.last_reminder_day if reminder else 0
 
-                        # 1. Reminded group
                         if last_day > 0:
                             reminded_groups[(last_day, age_days)].append(r.code)
 
-                        # 2. Upcoming group
                         next_day = 0
                         if last_day == 0:
                             next_day = 2
@@ -456,9 +453,9 @@ def webhook():
                             days_left = max(0, next_day - age_days)
                             upcoming_groups[(next_day, days_left, age_days)].append(r.code)
 
-                    response_parts = ["🔔 *ស្ថានភាពការរំលឹកលេខកូដបេ (Reminder Status)*"]
+                    response_parts = ["🔔 <b>ស្ថានភាពការរំលឹកលេខកូដបេ (Reminder Status)</b>"]
                     
-                    response_parts.append("\n1️⃣ *លេខកូដដែលបានរំលឹករួច (Sent Reminders)៖*")
+                    response_parts.append("\n1️⃣ <b>លេខកូដដែលបានរំលឹករួច (Sent Reminders)៖</b>")
                     if reminded_groups:
                         for (last_day, age_days), codes in reminded_groups.items():
                             header = f"\n📅 បានរំលឹក {last_day}ថ្ងៃ | រយៈពេល៖ {age_days}ថ្ងៃ៖"
@@ -468,7 +465,7 @@ def webhook():
                     else:
                         response_parts.append("• គ្មាន")
 
-                    response_parts.append("\n2️⃣ *លេខកូដដែលនឹងត្រូវរំលឹកឆាប់ៗ (Upcoming Reminders)៖*")
+                    response_parts.append("\n2️⃣ <b>លេខកូដដែលនឹងត្រូវរំលឹកឆាប់ៗ (Upcoming Reminders)៖</b>")
                     if upcoming_groups:
                         for (next_day, days_left, age_days), codes in upcoming_groups.items():
                             header = f"\n📅 នឹងរំលឹក (Day {next_day}) ក្នុងរយៈពេល {days_left}ថ្ងៃទៀត (រយៈពេលបច្ចុប្បន្ន៖ {age_days}ថ្ងៃ)៖"
@@ -478,7 +475,7 @@ def webhook():
                     else:
                         response_parts.append("• គ្មាន")
 
-                    run_async(send_message_safely(chat_id, "\n".join(response_parts), reply_to_message_id=message_id, parse_mode="Markdown"))
+                    run_async(send_message_safely(chat_id, "\n".join(response_parts), reply_to_message_id=message_id, parse_mode="HTML"))
                     
         return "OK", 200
 
