@@ -338,13 +338,14 @@ async def show_guide(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await send_guide(update.effective_message)
 
 async def show_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Checks and displays sent and upcoming reminders for the group."""
+    """Checks and displays sent and upcoming reminders for the group, grouped by status/situation."""
     chat = update.effective_chat
     if not chat or chat.type not in ["group", "supergroup"]:
         await reply_safely(update.message, "This command can only be used in group chats.")
         return
 
     from telegram_tracker.models.reminder import Reminder
+    from collections import defaultdict
     import datetime
 
     now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
@@ -361,8 +362,10 @@ async def show_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             await reply_safely(update.message, "មិនមានលេខកូដបេកំពុងតាមដានឡើយ។")
             return
 
-        reminded_list = []
-        upcoming_list = []
+        # Group reminded codes: (last_day, age_days) -> list of codes
+        reminded_groups = defaultdict(list)
+        # Group upcoming codes: (next_day, days_left, age_days) -> list of codes
+        upcoming_groups = defaultdict(list)
 
         for r in pending_records:
             send_time_naive = r.send_time.replace(tzinfo=None) if r.send_time.tzinfo else r.send_time
@@ -375,11 +378,11 @@ async def show_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             
             last_day = reminder.last_reminder_day if reminder else 0
 
-            # 1. Reminded list
+            # 1. Reminded group
             if last_day > 0:
-                reminded_list.append(f"• {r.code}: បានរំលឹក {last_day}ថ្ងៃ | រយៈពេល៖ {age_days}ថ្ងៃ")
+                reminded_groups[(last_day, age_days)].append(r.code)
 
-            # 2. Upcoming list
+            # 2. Upcoming group
             next_day = 0
             if last_day == 0:
                 next_day = 2
@@ -390,21 +393,27 @@ async def show_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
             if next_day > 0:
                 days_left = max(0, next_day - age_days)
-                upcoming_list.append(
-                    f"• {r.code}: នឹងរំលឹក (Day {next_day}) ក្នុងរយៈពេល {days_left}ថ្ងៃទៀត (រយៈពេលបច្ចុប្បន្ន៖ {age_days}ថ្ងៃ)"
-                )
+                upcoming_groups[(next_day, days_left, age_days)].append(r.code)
 
         response_parts = ["🔔 *ស្ថានភាពការរំលឹកលេខកូដបេ (Reminder Status)*"]
         
         response_parts.append("\n1️⃣ *លេខកូដដែលបានរំលឹករួច (Sent Reminders)៖*")
-        if reminded_list:
-            response_parts.extend(reminded_list)
+        if reminded_groups:
+            for (last_day, age_days), codes in reminded_groups.items():
+                header = f"\n📅 បានរំលឹក {last_day}ថ្ងៃ | រយៈពេល៖ {age_days}ថ្ងៃ៖"
+                response_parts.append(header)
+                for code in codes:
+                    response_parts.append(f"• {code}")
         else:
             response_parts.append("• គ្មាន")
 
         response_parts.append("\n2️⃣ *លេខកូដដែលនឹងត្រូវរំលឹកឆាប់ៗ (Upcoming Reminders)៖*")
-        if upcoming_list:
-            response_parts.extend(upcoming_list)
+        if upcoming_groups:
+            for (next_day, days_left, age_days), codes in upcoming_groups.items():
+                header = f"\n📅 នឹងរំលឹក (Day {next_day}) ក្នុងរយៈពេល {days_left}ថ្ងៃទៀត (រយៈពេលបច្ចុប្បន្ន៖ {age_days}ថ្ងៃ)៖"
+                response_parts.append(header)
+                for code in codes:
+                    response_parts.append(f"• {code}")
         else:
             response_parts.append("• គ្មាន")
 

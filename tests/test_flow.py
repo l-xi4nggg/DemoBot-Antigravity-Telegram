@@ -780,12 +780,12 @@ class TestKhmerFormatting(unittest.TestCase):
             mock_reply.assert_called_once()
             response_text = mock_reply.call_args[0][1]
             
-            # Check Khmer layout content
             self.assertIn("ស្ថានភាពការរំលឹកលេខកូដបេ", response_text)
             self.assertIn("លេខកូដដែលបានរំលឹករួច", response_text)
             self.assertIn("លេខកូដដែលនឹងត្រូវរំលឹកឆាប់ៗ", response_text)
-            self.assertIn("G111: បានរំលឹក 2ថ្ងៃ", response_text)
-            self.assertIn("G111: នឹងរំលឹក (Day 5)", response_text)
+            self.assertIn("បានរំលឹក 2ថ្ងៃ | រយៈពេល៖ 3ថ្ងៃ៖", response_text)
+            self.assertIn("នឹងរំលឹក (Day 5)", response_text)
+            self.assertIn("• G111", response_text)
 
     def test_khmer_reminders_command(self):
         import asyncio

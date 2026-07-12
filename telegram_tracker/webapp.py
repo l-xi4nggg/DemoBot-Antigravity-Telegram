@@ -411,6 +411,7 @@ def webhook():
                     
         elif cmd == "/reminders":
             from telegram_tracker.models.reminder import Reminder
+            from collections import defaultdict
             with get_db() as db:
                 pending_records = (
                     db.query(Record)
@@ -422,8 +423,10 @@ def webhook():
                     run_async(send_message_safely(chat_id, "មិនមានលេខកូដបេកំពុងតាមដានឡើយ។", reply_to_message_id=message_id))
                 else:
                     now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
-                    reminded_list = []
-                    upcoming_list = []
+                    # Group reminded codes: (last_day, age_days) -> list of codes
+                    reminded_groups = defaultdict(list)
+                    # Group upcoming codes: (next_day, days_left, age_days) -> list of codes
+                    upcoming_groups = defaultdict(list)
 
                     for r in pending_records:
                         send_time_naive = r.send_time.replace(tzinfo=None) if r.send_time.tzinfo else r.send_time
@@ -436,11 +439,11 @@ def webhook():
                         
                         last_day = reminder.last_reminder_day if reminder else 0
 
-                        # 1. Reminded list
+                        # 1. Reminded group
                         if last_day > 0:
-                            reminded_list.append(f"• {r.code}: បានរំលឹក {last_day}ថ្ងៃ | រយៈពេល៖ {age_days}ថ្ងៃ")
+                            reminded_groups[(last_day, age_days)].append(r.code)
 
-                        # 2. Upcoming list
+                        # 2. Upcoming group
                         next_day = 0
                         if last_day == 0:
                             next_day = 2
@@ -451,9 +454,7 @@ def webhook():
 
                         if next_day > 0:
                             days_left = max(0, next_day - age_days)
-                            upcoming_list.append(
-                                f"• {r.code}: នឹងរំលឹក (Day {next_day}) ក្នុងរយៈពេល {days_left}ថ្ងៃទៀត (រយៈពេលបច្ចុប្បន្ន៖ {age_days}ថ្ងៃ)"
-                            )
+                            upcoming_groups[(next_day, days_left, age_days)].append(r.code)
 
                     response_parts = ["🔔 *ស្ថានភាពការរំលឹកលេខកូដបេ (Reminder Status)*"]
                     
